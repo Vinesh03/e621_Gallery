@@ -2,11 +2,12 @@ import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
 import { useSearchStore } from '@/stores/appStore';
 import { Dialog, DialogContent, DialogDescription } from '@/components/ui/dialog';
-import { X, Download, Heart, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play } from 'lucide-react';
+import { X, Download, Heart, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface PostViewerProps {
   post: E621Post | null;
@@ -52,6 +53,9 @@ export function PostViewer({
   const [showInfo, setShowInfo] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
   const [pendingTagChanges, setPendingTagChanges] = useState<Set<string>>(new Set());
+  const [mobileInfoExpanded, setMobileInfoExpanded] = useState(false);
+  const isMobile = useIsMobile();
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const { currentTags, setCurrentTags } = useSearchStore();
 
@@ -59,6 +63,7 @@ export function PostViewer({
   useEffect(() => {
     setShowAllTags(false);
     setPendingTagChanges(new Set());
+    setMobileInfoExpanded(false);
   }, [post?.id]);
 
   if (!post) return null;
@@ -124,6 +129,17 @@ export function PostViewer({
     onClose(shouldTriggerSearch);
   };
 
+  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    // If dragged down enough, expand the info panel
+    if (info.offset.y > 50 && !mobileInfoExpanded) {
+      setMobileInfoExpanded(true);
+    }
+    // If dragged up enough, collapse the info panel
+    if (info.offset.y < -50 && mobileInfoExpanded) {
+      setMobileInfoExpanded(false);
+    }
+  };
+
   const allTags = [
     ...post.tags.artist.map(t => ({ tag: t, type: 'artist' })),
     ...post.tags.character.map(t => ({ tag: t, type: 'character' })),
@@ -164,6 +180,257 @@ export function PostViewer({
     );
   };
 
+  // Mobile Layout
+  if (isMobile) {
+    return (
+      <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+        <DialogContent 
+          hideCloseButton 
+          className="max-w-full w-full h-[100dvh] p-0 gap-0 bg-background border-none rounded-none"
+          style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
+          <DialogDescription className="sr-only">Visualizzatore post {post.id}</DialogDescription>
+          <div ref={containerRef} className="relative flex flex-col h-full overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-3 border-b border-border bg-background/95 backdrop-blur-sm z-10">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-mono text-muted-foreground">#{post.id}</span>
+                <span className={cn("text-sm font-medium", ratingColors[post.rating])}>
+                  {ratingLabels[post.rating]}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownload}
+                  className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Main content with drag to expand */}
+            <motion.div 
+              className="flex-1 flex flex-col overflow-hidden"
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={0.2}
+              onDragEnd={handleDragEnd}
+            >
+              {/* Media */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={post.id}
+                  initial={{ opacity: 0 }}
+                  animate={{ 
+                    opacity: 1,
+                    height: mobileInfoExpanded ? '40%' : '100%'
+                  }}
+                  transition={{ duration: 0.3 }}
+                  className="relative flex items-center justify-center bg-background overflow-hidden"
+                >
+                  {/* Navigation buttons */}
+                  {hasPrevious && onPrevious && (
+                    <button
+                      onClick={onPrevious}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors z-10"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                  )}
+                  {hasNext && onNext && (
+                    <button
+                      onClick={onNext}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors z-10"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  )}
+
+                  {isVideo ? (
+                    <video
+                      src={mediaUrl || ''}
+                      controls
+                      autoPlay
+                      loop
+                      playsInline
+                      muted
+                      preload="auto"
+                      crossOrigin="anonymous"
+                      className="max-w-full max-h-full object-contain"
+                      onError={() => {
+                        toast.error('Video non riproducibile');
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={mediaUrl || ''}
+                      alt={`Post ${post.id}`}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Drag indicator */}
+              <div className="flex justify-center py-2 bg-background">
+                <div className="w-12 h-1 rounded-full bg-muted-foreground/30" />
+              </div>
+
+              {/* Quick actions bar */}
+              <div className="flex items-center justify-around p-3 border-t border-border bg-background">
+                <button className="flex flex-col items-center gap-1 p-2">
+                  <ThumbsUp className="w-5 h-5" />
+                  <span className="text-xs">{post.score.up}</span>
+                </button>
+                <button className="flex flex-col items-center gap-1 p-2">
+                  <ThumbsDown className="w-5 h-5" />
+                  <span className="text-xs">{post.score.down}</span>
+                </button>
+                <button className="flex flex-col items-center gap-1 p-2">
+                  <Heart className={cn("w-5 h-5", post.is_favorited && "fill-destructive text-destructive")} />
+                  <span className="text-xs">{post.fav_count}</span>
+                </button>
+                <button 
+                  onClick={handleOpenOnE621}
+                  className="flex flex-col items-center gap-1 p-2"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  <span className="text-xs">{post.comment_count}</span>
+                </button>
+                <button
+                  onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
+                  className="flex flex-col items-center gap-1 p-2"
+                >
+                  {mobileInfoExpanded ? (
+                    <ChevronDown className="w-5 h-5" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5" />
+                  )}
+                  <span className="text-xs">Info</span>
+                </button>
+              </div>
+
+              {/* Expandable info panel */}
+              <AnimatePresence>
+                {mobileInfoExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden border-t border-border"
+                  >
+                    <div className="h-[40vh] overflow-y-auto p-4 space-y-4 bg-card">
+                      {/* Stats */}
+                      <div className="space-y-2">
+                        <h3 className="font-semibold text-sm">Stats</h3>
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Heart className={cn("w-4 h-4", post.is_favorited && "fill-destructive text-destructive")} />
+                            <span>{post.fav_count}</span>
+                          </div>
+                          <div>Score: {post.score.total}</div>
+                          <div className="text-muted-foreground">
+                            {post.file.width}×{post.file.height}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sources */}
+                      {post.sources.length > 0 && (
+                        <div className="space-y-2">
+                          <h3 className="font-semibold text-sm">Sources</h3>
+                          <div className="space-y-1">
+                            {post.sources.slice(0, 3).map((source, i) => (
+                              <a
+                                key={i}
+                                href={source}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-xs text-accent hover:underline truncate"
+                              >
+                                <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{source}</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Tags */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-sm">Tags ({allTags.length})</h3>
+                          <p className="text-xs text-muted-foreground">
+                            Tap per aggiungere/rimuovere
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {displayedTags.map(renderTag)}
+                        </div>
+                        {hiddenTagsCount > 0 && (
+                          <button
+                            onClick={() => setShowAllTags(!showAllTags)}
+                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            {showAllTags ? (
+                              <>
+                                <ChevronUp className="w-3 h-3" />
+                                Mostra meno
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-3 h-3" />
+                                Mostra altri {hiddenTagsCount} tag
+                              </>
+                            )}
+                          </button>
+                        )}
+                        
+                        {pendingTagChanges.size > 0 && (
+                          <p className="text-xs text-primary bg-primary/10 p-2 rounded">
+                            {pendingTagChanges.size} tag modificati. La ricerca partirà alla chiusura.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Description */}
+                      {post.description && (
+                        <div className="space-y-2">
+                          <h3 className="font-semibold text-sm">Description</h3>
+                          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                            {post.description}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Open on e621 button */}
+                      <button
+                        onClick={handleOpenOnE621}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        <span>Apri su e621 (commenti)</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Desktop Layout
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] p-0 gap-0 bg-background/95 backdrop-blur-lg border-border overflow-hidden">
