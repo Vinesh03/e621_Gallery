@@ -1,16 +1,17 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
+import { useSearchStore } from '@/stores/appStore';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X, Download, Heart, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Download, Heart, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 
 interface PostViewerProps {
   post: E621Post | null;
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (triggerSearch?: boolean) => void;
   onPrevious?: () => void;
   onNext?: () => void;
   hasPrevious?: boolean;
@@ -29,6 +30,16 @@ const ratingLabels = {
   e: 'Explicit',
 };
 
+const tagColors: Record<string, string> = {
+  artist: 'text-primary',
+  character: 'text-accent',
+  copyright: 'text-destructive',
+  species: 'text-success',
+  general: 'text-foreground',
+  meta: 'text-muted-foreground',
+  lore: 'text-warning',
+};
+
 export function PostViewer({ 
   post, 
   isOpen, 
@@ -39,6 +50,17 @@ export function PostViewer({
   hasNext 
 }: PostViewerProps) {
   const [showInfo, setShowInfo] = useState(false);
+  const [showAllTags, setShowAllTags] = useState(false);
+  const [pendingTagChanges, setPendingTagChanges] = useState<Set<string>>(new Set());
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const { currentTags, setCurrentTags } = useSearchStore();
+
+  // Reset state when post changes
+  useEffect(() => {
+    setShowAllTags(false);
+    setPendingTagChanges(new Set());
+  }, [post?.id]);
 
   if (!post) return null;
 
@@ -48,26 +70,54 @@ export function PostViewer({
 
   const handleDownload = async () => {
     if (!downloadUrl) {
-      toast.error('Download not available');
+      toast.error('Download non disponibile');
       return;
     }
 
-    try {
-      const response = await fetch(downloadUrl);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `e621_${post.id}.${post.file.ext}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('Download started');
-    } catch (error) {
-      toast.error('Failed to download');
-      console.error('Download error:', error);
+    // Open in new tab as fallback for CORS issues
+    window.open(downloadUrl, '_blank');
+    toast.success('Download aperto in nuova scheda');
+  };
+
+  const getCurrentTags = (): string[] => {
+    return currentTags.split(' ').filter(t => t.trim());
+  };
+
+  const isTagInSearch = (tag: string): boolean => {
+    const tags = getCurrentTags();
+    return tags.includes(tag) || tags.includes(`-${tag}`);
+  };
+
+  const isTagExcluded = (tag: string): boolean => {
+    const tags = getCurrentTags();
+    return tags.includes(`-${tag}`);
+  };
+
+  const handleTagToggle = (tag: string) => {
+    const tags = getCurrentTags();
+    let newTags: string[];
+
+    if (isTagExcluded(tag)) {
+      // Remove exclusion
+      newTags = tags.filter(t => t !== `-${tag}`);
+    } else if (isTagInSearch(tag)) {
+      // Change from include to exclude
+      newTags = tags.filter(t => t !== tag);
+      newTags.push(`-${tag}`);
+    } else {
+      // Add tag
+      newTags.push(tag);
+      newTags = [...tags, tag];
     }
+
+    const newTagString = newTags.join(' ');
+    setCurrentTags(newTagString);
+    setPendingTagChanges(prev => new Set([...prev, tag]));
+  };
+
+  const handleClose = () => {
+    const shouldTriggerSearch = pendingTagChanges.size > 0;
+    onClose(shouldTriggerSearch);
   };
 
   const allTags = [
@@ -76,18 +126,42 @@ export function PostViewer({
     ...post.tags.copyright.map(t => ({ tag: t, type: 'copyright' })),
     ...post.tags.species.map(t => ({ tag: t, type: 'species' })),
     ...post.tags.general.map(t => ({ tag: t, type: 'general' })),
+    ...post.tags.meta.map(t => ({ tag: t, type: 'meta' })),
+    ...post.tags.lore.map(t => ({ tag: t, type: 'lore' })),
   ];
 
-  const tagColors: Record<string, string> = {
-    artist: 'text-primary',
-    character: 'text-accent',
-    copyright: 'text-destructive',
-    species: 'text-success',
-    general: 'text-foreground',
+  const displayedTags = showAllTags ? allTags : allTags.slice(0, 30);
+  const hiddenTagsCount = allTags.length - 30;
+
+  const renderTag = ({ tag, type }: { tag: string; type: string }) => {
+    const inSearch = isTagInSearch(tag);
+    const excluded = isTagExcluded(tag);
+    
+    return (
+      <button
+        key={`${type}-${tag}`}
+        onClick={() => handleTagToggle(tag)}
+        className={cn(
+          "text-xs px-2 py-1 rounded bg-secondary flex items-center gap-1 hover:bg-secondary/80 transition-colors group",
+          tagColors[type],
+          excluded && "opacity-50 line-through",
+          inSearch && !excluded && "ring-1 ring-primary"
+        )}
+      >
+        <span className="opacity-0 group-hover:opacity-100 transition-opacity">
+          {inSearch && !excluded ? (
+            <Minus className="w-3 h-3" />
+          ) : (
+            <Plus className="w-3 h-3" />
+          )}
+        </span>
+        <span>{tag}</span>
+      </button>
+    );
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] p-0 gap-0 bg-background/95 backdrop-blur-lg border-border overflow-hidden">
         <div className="relative flex flex-col h-[95vh]">
           {/* Header */}
@@ -112,7 +186,7 @@ export function PostViewer({
                 <Download className="w-4 h-4" />
               </button>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="p-2 rounded-lg hover:bg-secondary transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -153,10 +227,12 @@ export function PostViewer({
                 >
                   {isVideo ? (
                     <video
+                      ref={videoRef}
                       src={mediaUrl || ''}
                       controls
                       autoPlay
                       loop
+                      playsInline
                       className="max-w-full max-h-[70vh] rounded-lg"
                     />
                   ) : (
@@ -175,11 +251,11 @@ export function PostViewer({
               {showInfo && (
                 <motion.div
                   initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 280, opacity: 1 }}
+                  animate={{ width: 320, opacity: 1 }}
                   exit={{ width: 0, opacity: 0 }}
                   className="border-l border-border bg-card overflow-hidden"
                 >
-                  <div className="w-[280px] h-full overflow-y-auto p-4 space-y-4">
+                  <div className="w-[320px] h-full overflow-y-auto p-4 space-y-4">
                     {/* Stats */}
                     <div className="space-y-2">
                       <h3 className="font-semibold text-sm">Stats</h3>
@@ -218,25 +294,39 @@ export function PostViewer({
 
                     {/* Tags */}
                     <div className="space-y-2">
-                      <h3 className="font-semibold text-sm">Tags</h3>
-                      <div className="flex flex-wrap gap-1">
-                        {allTags.slice(0, 30).map(({ tag, type }) => (
-                          <span
-                            key={`${type}-${tag}`}
-                            className={cn(
-                              "text-xs px-1.5 py-0.5 rounded bg-secondary",
-                              tagColors[type]
-                            )}
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                        {allTags.length > 30 && (
-                          <span className="text-xs text-muted-foreground">
-                            +{allTags.length - 30} more
-                          </span>
-                        )}
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-sm">Tags ({allTags.length})</h3>
+                        <p className="text-xs text-muted-foreground">
+                          Clicca per aggiungere/rimuovere
+                        </p>
                       </div>
+                      <div className="flex flex-wrap gap-1">
+                        {displayedTags.map(renderTag)}
+                      </div>
+                      {hiddenTagsCount > 0 && (
+                        <button
+                          onClick={() => setShowAllTags(!showAllTags)}
+                          className="flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          {showAllTags ? (
+                            <>
+                              <ChevronUp className="w-3 h-3" />
+                              Mostra meno
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-3 h-3" />
+                              Mostra altri {hiddenTagsCount} tag
+                            </>
+                          )}
+                        </button>
+                      )}
+                      
+                      {pendingTagChanges.size > 0 && (
+                        <p className="text-xs text-primary bg-primary/10 p-2 rounded">
+                          {pendingTagChanges.size} tag modificati. La ricerca partirà alla chiusura.
+                        </p>
+                      )}
                     </div>
 
                     {/* Description */}
