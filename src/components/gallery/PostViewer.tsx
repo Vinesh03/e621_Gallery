@@ -1,11 +1,11 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
 import { useSearchStore } from '@/stores/appStore';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X, Download, Heart, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription } from '@/components/ui/dialog';
+import { X, Download, Heart, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 
 interface PostViewerProps {
@@ -52,7 +52,6 @@ export function PostViewer({
   const [showInfo, setShowInfo] = useState(false);
   const [showAllTags, setShowAllTags] = useState(false);
   const [pendingTagChanges, setPendingTagChanges] = useState<Set<string>>(new Set());
-  const videoRef = useRef<HTMLVideoElement>(null);
   
   const { currentTags, setCurrentTags } = useSearchStore();
 
@@ -67,6 +66,7 @@ export function PostViewer({
   const isVideo = post.file.ext === 'webm' || post.file.ext === 'mp4';
   const mediaUrl = e621Api.getSampleUrl(post) || e621Api.getDownloadUrl(post);
   const downloadUrl = e621Api.getDownloadUrl(post);
+  const e621Url = `https://e621.net/posts/${post.id}`;
 
   const handleDownload = async () => {
     if (!downloadUrl) {
@@ -77,6 +77,10 @@ export function PostViewer({
     // Open in new tab as fallback for CORS issues
     window.open(downloadUrl, '_blank');
     toast.success('Download aperto in nuova scheda');
+  };
+
+  const handleOpenOnE621 = () => {
+    window.open(e621Url, '_blank');
   };
 
   const getCurrentTags = (): string[] => {
@@ -163,6 +167,7 @@ export function PostViewer({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] p-0 gap-0 bg-background/95 backdrop-blur-lg border-border overflow-hidden">
+        <DialogDescription className="sr-only">Visualizzatore post {post.id}</DialogDescription>
         <div className="relative flex flex-col h-[95vh]">
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b border-border bg-background/80">
@@ -173,6 +178,13 @@ export function PostViewer({
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleOpenOnE621}
+                className="p-2 rounded-lg hover:bg-secondary transition-colors text-sm flex items-center gap-1"
+                title="Apri su e621"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => setShowInfo(!showInfo)}
                 className="p-2 rounded-lg hover:bg-secondary transition-colors text-sm"
@@ -226,15 +238,28 @@ export function PostViewer({
                   className="max-w-full max-h-full"
                 >
                   {isVideo ? (
-                    <video
-                      ref={videoRef}
-                      src={mediaUrl || ''}
-                      controls
-                      autoPlay
-                      loop
-                      playsInline
-                      className="max-w-full max-h-[70vh] rounded-lg"
-                    />
+                    <div className="flex flex-col items-center gap-4">
+                      {/* Try to play video, show fallback if it fails */}
+                      <video
+                        src={mediaUrl || ''}
+                        controls
+                        autoPlay
+                        loop
+                        playsInline
+                        muted
+                        className="max-w-full max-h-[60vh] rounded-lg"
+                        onError={() => {
+                          toast.error('Video non riproducibile, apri su e621');
+                        }}
+                      />
+                      <button
+                        onClick={handleOpenOnE621}
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                      >
+                        <Play className="w-4 h-4" />
+                        <span>Apri video su e621</span>
+                      </button>
+                    </div>
                   ) : (
                     <img
                       src={mediaUrl || ''}
