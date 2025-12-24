@@ -160,7 +160,6 @@ export default function GalleryPage() {
       {/* Header */}
       <header
         className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
       >
         <div className="container py-3">
           {/* User greeting */}
