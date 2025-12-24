@@ -16,6 +16,7 @@ interface ShortsViewerProps {
 
 export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: ShortsViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState<'up' | 'down'>('down');
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
 
@@ -23,12 +24,14 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
 
   const goToPrevious = useCallback(() => {
     if (currentIndex > 0) {
+      setDirection('up');
       setCurrentIndex(currentIndex - 1);
     }
   }, [currentIndex]);
 
   const goToNext = useCallback(() => {
     if (currentIndex < posts.length - 1) {
+      setDirection('down');
       setCurrentIndex(currentIndex + 1);
     }
   }, [currentIndex, posts.length]);
@@ -186,13 +189,13 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
       </div>
 
       {/* Video container */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={currentPost?.id}
-          initial={{ opacity: 0, y: 50 }}
+          initial={{ opacity: 0, y: direction === 'down' ? 100 : -100 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -50 }}
-          transition={{ duration: 0.2 }}
+          exit={{ opacity: 0, y: direction === 'down' ? -100 : 100 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
           className="w-full h-full flex items-center justify-center"
         >
           {currentPost && (
@@ -208,6 +211,10 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
                 loop
                 playsInline
                 muted
+                preload="auto"
+                crossOrigin="anonymous"
+                webkit-playsinline="true"
+                x-webkit-airplay="allow"
                 onError={() => {
                   toast.error('Video non riproducibile');
                 }}
