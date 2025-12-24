@@ -95,9 +95,19 @@
     @apply border-border;
   }
 
+  html {
+    /* Safe area support for mobile notches */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: var(--font-display);
+    min-height: 100vh;
+    min-height: 100dvh;
   }
 
   /* Custom scrollbar */
