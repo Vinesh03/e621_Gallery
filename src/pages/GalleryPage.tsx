@@ -30,7 +30,7 @@ export default function GalleryPage() {
   const [selectedPost, setSelectedPost] = useState<E621Post | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
-  const { ratingFilter, mediaFilter, viewMode, setViewMode, setMediaFilter, savedMediaFilter, setSavedMediaFilter } = useSettingsStore();
+  const { ratingFilter, mediaFilter, viewMode, setViewMode } = useSettingsStore();
   const { currentTags, setCurrentTags } = useSearchStore();
   const { credentials, isGuest, isFirstLogin, setNotFirstLogin } = useAuthStore();
 
@@ -172,11 +172,7 @@ export default function GalleryPage() {
           {/* View mode toggle */}
           <div className="flex items-center gap-2 mb-3">
             <button
-              onClick={() => {
-                // Restore saved media filter when returning to gallery
-                setMediaFilter(savedMediaFilter);
-                setViewMode('gallery');
-              }}
+              onClick={() => setViewMode('gallery')}
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors",
                 viewMode === 'gallery'
@@ -188,12 +184,7 @@ export default function GalleryPage() {
               <span className="font-medium text-sm">Galleria</span>
             </button>
             <button
-              onClick={() => {
-                // Save current media filter and switch to video only
-                setSavedMediaFilter(mediaFilter);
-                setMediaFilter('video');
-                setViewMode('shorts');
-              }}
+              onClick={() => setViewMode('shorts')}
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors",
                 viewMode === 'shorts'
