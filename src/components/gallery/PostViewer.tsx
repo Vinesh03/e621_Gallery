@@ -187,7 +187,10 @@ export function PostViewer({
         <DialogContent 
           hideCloseButton 
           className="max-w-full w-full h-[100dvh] p-0 gap-0 bg-background border-none rounded-none"
-          style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+          style={{
+            paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 0px))',
+            paddingBottom: 'max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px))',
+          }}
         >
           <DialogDescription className="sr-only">Visualizzatore post {post.id}</DialogDescription>
           <div ref={containerRef} className="relative flex flex-col h-full overflow-hidden">
