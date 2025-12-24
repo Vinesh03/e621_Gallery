@@ -1,8 +1,8 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { ChevronUp, ChevronDown, Heart, Download, X } from 'lucide-react';
+import { ChevronUp, ChevronDown, Heart, Download, X, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -21,6 +21,18 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
 
   const currentPost = posts[currentIndex];
 
+  const goToPrevious = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  }, [currentIndex]);
+
+  const goToNext = useCallback(() => {
+    if (currentIndex < posts.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  }, [currentIndex, posts.length]);
+
   // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -35,7 +47,7 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, posts.length]);
+  }, [goToPrevious, goToNext, onExit]);
 
   // Load more when near the end
   useEffect(() => {
@@ -48,6 +60,7 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   useEffect(() => {
     videoRefs.current.forEach((video, index) => {
       if (index === currentIndex) {
+        video.muted = true; // Start muted to allow autoplay
         video.play().catch(() => {});
       } else {
         video.pause();
@@ -55,19 +68,7 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     });
   }, [currentIndex]);
 
-  const goToPrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
-
-  const goToNext = () => {
-    if (currentIndex < posts.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
-
-  const handleDownload = async () => {
+  const handleDownload = () => {
     if (!currentPost) return;
     
     const url = e621Api.getDownloadUrl(currentPost);
@@ -76,9 +77,13 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
       return;
     }
 
-    // Open in new tab as fallback for CORS
     window.open(url, '_blank');
     toast.success('Download aperto in nuova scheda');
+  };
+
+  const handleOpenOnE621 = () => {
+    if (!currentPost) return;
+    window.open(`https://e621.net/posts/${currentPost.id}`, '_blank');
   };
 
   // Handle touch swipe
@@ -161,6 +166,13 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           <span className="text-xs mt-1">{currentPost?.fav_count || 0}</span>
         </button>
         <button
+          onClick={handleOpenOnE621}
+          className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors"
+          title="Apri su e621"
+        >
+          <ExternalLink className="w-6 h-6" />
+        </button>
+        <button
           onClick={handleDownload}
           className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors"
         >
@@ -184,17 +196,30 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           className="w-full h-full flex items-center justify-center"
         >
           {currentPost && (
-            <video
-              ref={(el) => {
-                if (el) videoRefs.current.set(currentIndex, el);
-              }}
-              src={e621Api.getSampleUrl(currentPost) || e621Api.getDownloadUrl(currentPost) || ''}
-              className="max-w-full max-h-full object-contain"
-              controls
-              autoPlay
-              loop
-              playsInline
-            />
+            <div className="flex flex-col items-center gap-4 w-full h-full justify-center">
+              <video
+                ref={(el) => {
+                  if (el) videoRefs.current.set(currentIndex, el);
+                }}
+                src={e621Api.getSampleUrl(currentPost) || e621Api.getDownloadUrl(currentPost) || ''}
+                className="max-w-full max-h-[80vh] object-contain"
+                controls
+                autoPlay
+                loop
+                playsInline
+                muted
+                onError={() => {
+                  toast.error('Video non riproducibile');
+                }}
+              />
+              <button
+                onClick={handleOpenOnE621}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Se non funziona, apri su e621</span>
+              </button>
+            </div>
           )}
         </motion.div>
       </AnimatePresence>
