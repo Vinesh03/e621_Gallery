@@ -50,14 +50,14 @@ class E621Api {
 
   private buildRatingQuery(rating?: string): string {
     if (!rating || rating === 'sqe') return '';
-    
+
     const ratingMap: Record<string, string> = {
-      's': 'rating:s',
-      'q': 'rating:q',
-      'e': 'rating:e',
-      'sq': '( rating:s OR rating:q )',
-      'se': '( rating:s OR rating:e )',
-      'qe': '( rating:q OR rating:e )',
+      s: 'rating:s',
+      q: 'rating:q',
+      e: 'rating:e',
+      sq: '( ~rating:s ~rating:q )',
+      se: '( ~rating:s ~rating:e )',
+      qe: '( ~rating:q ~rating:e )',
     };
 
     return ratingMap[rating] || '';

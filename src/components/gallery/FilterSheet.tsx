@@ -11,6 +11,7 @@ const ratingOptions: { value: RatingFilter; label: string; description: string }
   { value: 's', label: 'Solo Safe', description: 'Mostra solo contenuti safe' },
   { value: 'sq', label: 'Safe + Questionable', description: 'Contenuti safe e questionable' },
   { value: 'sqe', label: 'Tutti i rating', description: 'Mostra tutti i contenuti' },
+  { value: 'e', label: 'Solo Explicit', description: 'Mostra solo contenuti explicit' },
 ];
 
 const mediaOptions: { value: MediaFilter; label: string; icon: typeof Image }[] = [

@@ -114,7 +114,7 @@ export const useAuthStore = create<AuthState>()(
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      ratingFilter: 'e',
+      ratingFilter: 'sqe',
       mediaFilter: 'all',
       darkMode: true,
       gridColumns: 2,
@@ -133,10 +133,13 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'e6-settings',
-      version: 2,
+      version: 3,
       migrate: (persistedState: any, version: number) => {
-        if (version < 2) {
-          return { ...persistedState, ratingFilter: 'e' };
+        if (version < 3 && persistedState && typeof persistedState === 'object') {
+          return {
+            ...persistedState,
+            ratingFilter: persistedState.ratingFilter ?? 'sqe',
+          };
         }
         return persistedState;
       },
