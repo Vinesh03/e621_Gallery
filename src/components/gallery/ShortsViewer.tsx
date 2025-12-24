@@ -1,6 +1,6 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { ChevronUp, ChevronDown, Heart, Download, X, ExternalLink, Volume2, VolumeX } from 'lucide-react';
+import { ChevronUp, ChevronDown, Heart, Download, X, ExternalLink } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -16,23 +16,19 @@ interface ShortsViewerProps {
 
 export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: ShortsViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [direction, setDirection] = useState<'up' | 'down'>('down');
-  const [isMuted, setIsMuted] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
 
   const currentPost = posts[currentIndex];
 
   const goToPrevious = useCallback(() => {
     if (currentIndex > 0) {
-      setDirection('up');
       setCurrentIndex(currentIndex - 1);
     }
   }, [currentIndex]);
 
   const goToNext = useCallback(() => {
     if (currentIndex < posts.length - 1) {
-      setDirection('down');
       setCurrentIndex(currentIndex + 1);
     }
   }, [currentIndex, posts.length]);
@@ -60,13 +56,17 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     }
   }, [currentIndex, posts.length, hasMore, isLoading, onLoadMore]);
 
-  // Play video when it changes
+  // Pause videos that are not visible
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.muted = isMuted;
-      videoRef.current.play().catch(() => {});
-    }
-  }, [currentIndex, isMuted]);
+    videoRefs.current.forEach((video, index) => {
+      if (index === currentIndex) {
+        video.muted = true; // Start muted to allow autoplay
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    });
+  }, [currentIndex]);
 
   const handleDownload = () => {
     if (!currentPost) return;
@@ -84,13 +84,6 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   const handleOpenOnE621 = () => {
     if (!currentPost) return;
     window.open(`https://e621.net/posts/${currentPost.id}`, '_blank');
-  };
-
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-    }
   };
 
   // Handle touch swipe
@@ -112,22 +105,6 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     }
   };
 
-  // Animation variants based on direction
-  const slideVariants = {
-    enter: (dir: 'up' | 'down') => ({
-      opacity: 0,
-      y: dir === 'down' ? 100 : -100,
-    }),
-    center: {
-      opacity: 1,
-      y: 0,
-    },
-    exit: (dir: 'up' | 'down') => ({
-      opacity: 0,
-      y: dir === 'down' ? -100 : 100,
-    }),
-  };
-
   if (posts.length === 0) {
     return (
       <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
@@ -140,8 +117,6 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
       </div>
     );
   }
-
-  const videoUrl = currentPost?.file?.url || currentPost?.sample?.url;
 
   return (
     <div 
@@ -185,13 +160,6 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
       {/* Action buttons */}
       <div className="absolute right-4 bottom-20 z-40 flex flex-col gap-4">
         <button
-          onClick={toggleMute}
-          className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors"
-          title={isMuted ? "Attiva audio" : "Disattiva audio"}
-        >
-          {isMuted ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
-        </button>
-        <button
           className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors flex flex-col items-center"
         >
           <Heart className={cn("w-6 h-6", currentPost?.is_favorited && "fill-destructive text-destructive")} />
@@ -218,55 +186,38 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
       </div>
 
       {/* Video container */}
-      <AnimatePresence mode="wait" custom={direction}>
+      <AnimatePresence mode="wait">
         <motion.div
           key={currentPost?.id}
-          custom={direction}
-          variants={slideVariants}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.2 }}
           className="w-full h-full flex items-center justify-center"
         >
-          {currentPost && videoUrl ? (
-            <div className="flex flex-col items-center gap-4 w-full h-full justify-center px-4">
+          {currentPost && (
+            <div className="flex flex-col items-center gap-4 w-full h-full justify-center">
               <video
-                ref={videoRef}
-                key={`video-${currentPost.id}`}
-                src={videoUrl}
-                className="max-w-full max-h-[75vh] object-contain rounded-lg"
+                ref={(el) => {
+                  if (el) videoRefs.current.set(currentIndex, el);
+                }}
+                src={e621Api.getSampleUrl(currentPost) || e621Api.getDownloadUrl(currentPost) || ''}
+                className="max-w-full max-h-[80vh] object-contain"
                 controls
                 autoPlay
                 loop
                 playsInline
-                muted={isMuted}
-                crossOrigin="anonymous"
-                onError={(e) => {
-                  // Video failed to load - this is expected due to CORS
-                  console.log('Video error, CORS issue expected');
+                muted
+                onError={() => {
+                  toast.error('Video non riproducibile');
                 }}
               />
-              <p className="text-xs text-muted-foreground text-center max-w-md">
-                Se il video non si carica, aprilo su e621
-              </p>
               <button
                 onClick={handleOpenOnE621}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
               >
                 <ExternalLink className="w-4 h-4" />
-                <span>Apri su e621</span>
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-4">
-              <p className="text-muted-foreground">Video non disponibile</p>
-              <button
-                onClick={handleOpenOnE621}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Apri su e621</span>
+                <span>Se non funziona, apri su e621</span>
               </button>
             </div>
           )}
