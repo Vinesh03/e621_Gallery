@@ -25,7 +25,7 @@ export default function GalleryPage() {
 
   const { ratingFilter, mediaFilter } = useSettingsStore();
   const { currentTags, setCurrentTags } = useSearchStore();
-  const { credentials, isFirstLogin, setNotFirstLogin } = useAuthStore();
+  const { credentials, isGuest, isFirstLogin, setNotFirstLogin } = useAuthStore();
 
   // Show greeting toast on first login
   useEffect(() => {
@@ -104,16 +104,18 @@ export default function GalleryPage() {
     setSelectedIndex(index);
   };
 
+  const displayName = credentials?.username || (isGuest ? 'Ospite' : null);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border">
         <div className="container py-3">
           {/* User greeting */}
-          {credentials && (
+          {displayName && (
             <div className="flex items-center justify-end mb-2">
               <span className="text-sm text-muted-foreground">
-                Ciao, <span className="text-primary font-medium">{credentials.username}</span>
+                Ciao, <span className="text-primary font-medium">{displayName}</span>
               </span>
             </div>
           )}
