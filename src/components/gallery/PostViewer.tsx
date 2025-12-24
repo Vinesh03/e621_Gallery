@@ -88,7 +88,7 @@ export function PostViewer({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 gap-0 bg-background/95 backdrop-blur-lg border-border overflow-hidden">
+      <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] p-0 gap-0 bg-background/95 backdrop-blur-lg border-border overflow-hidden">
         <div className="relative flex flex-col h-[95vh]">
           {/* Header */}
           <div className="flex items-center justify-between p-3 border-b border-border bg-background/80">

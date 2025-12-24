@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AuthCredentials, RatingFilter } from '@/types/e621';
+import { AuthCredentials, RatingFilter, MediaFilter } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
 
 interface AuthState {
@@ -8,19 +8,23 @@ interface AuthState {
   isGuest: boolean;
   isLoading: boolean;
   error: string | null;
+  isFirstLogin: boolean;
   
   login: (username: string, apiKey: string) => Promise<boolean>;
   loginAsGuest: () => void;
   logout: () => void;
   clearError: () => void;
+  setNotFirstLogin: () => void;
 }
 
 interface SettingsState {
   ratingFilter: RatingFilter;
+  mediaFilter: MediaFilter;
   darkMode: boolean;
   gridColumns: 2 | 3 | 4;
   
   setRatingFilter: (filter: RatingFilter) => void;
+  setMediaFilter: (filter: MediaFilter) => void;
   setDarkMode: (enabled: boolean) => void;
   setGridColumns: (columns: 2 | 3 | 4) => void;
 }
@@ -41,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
       isGuest: false,
       isLoading: false,
       error: null,
+      isFirstLogin: true,
 
       login: async (username: string, apiKey: string) => {
         set({ isLoading: true, error: null });
@@ -51,7 +56,12 @@ export const useAuthStore = create<AuthState>()(
         const isValid = await e621Api.validateCredentials();
         
         if (isValid) {
-          set({ credentials, isGuest: false, isLoading: false });
+          set((state) => ({ 
+            credentials, 
+            isGuest: false, 
+            isLoading: false,
+            isFirstLogin: state.isFirstLogin
+          }));
           return true;
         } else {
           e621Api.setCredentials(null);
@@ -71,16 +81,19 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         e621Api.setCredentials(null);
-        set({ credentials: null, isGuest: false, error: null });
+        set({ credentials: null, isGuest: false, error: null, isFirstLogin: true });
       },
 
       clearError: () => set({ error: null }),
+      
+      setNotFirstLogin: () => set({ isFirstLogin: false }),
     }),
     {
       name: 'e6-auth',
       partialize: (state) => ({ 
         credentials: state.credentials,
         isGuest: state.isGuest,
+        isFirstLogin: state.isFirstLogin,
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.credentials) {
@@ -95,10 +108,12 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       ratingFilter: 's',
+      mediaFilter: 'all',
       darkMode: true,
       gridColumns: 2,
 
       setRatingFilter: (filter) => set({ ratingFilter: filter }),
+      setMediaFilter: (filter) => set({ mediaFilter: filter }),
       setDarkMode: (enabled) => set({ darkMode: enabled }),
       setGridColumns: (columns) => set({ gridColumns: columns }),
     }),
