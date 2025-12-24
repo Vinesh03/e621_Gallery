@@ -5,6 +5,7 @@ import { SlidersHorizontal, Moon, Sun, LogOut, Image, Film, Layers } from 'lucid
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
+import { ThemeCustomizer } from './ThemeCustomizer';
 
 const ratingOptions: { value: RatingFilter; label: string; description: string }[] = [
   { value: 's', label: 'Solo Safe', description: 'Mostra solo contenuti safe' },
@@ -44,7 +45,7 @@ export function FilterSheet() {
           <SlidersHorizontal className="w-5 h-5" />
         </button>
       </SheetTrigger>
-      <SheetContent className="bg-background border-border">
+      <SheetContent className="bg-background border-border overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Filtri & Impostazioni</SheetTitle>
         </SheetHeader>
@@ -102,6 +103,12 @@ export function FilterSheet() {
                 );
               })}
             </div>
+          </div>
+
+          {/* Theme customizer */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-sm">Tema</h3>
+            <ThemeCustomizer />
           </div>
 
           {/* Dark mode toggle */}

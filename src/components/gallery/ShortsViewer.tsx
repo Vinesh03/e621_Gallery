@@ -1,0 +1,210 @@
+import { E621Post } from '@/types/e621';
+import { e621Api } from '@/services/e621Api';
+import { ChevronUp, ChevronDown, Heart, Download, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useRef, useEffect } from 'react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+
+interface ShortsViewerProps {
+  posts: E621Post[];
+  isLoading: boolean;
+  onLoadMore: () => void;
+  hasMore: boolean;
+  onExit: () => void;
+}
+
+export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: ShortsViewerProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
+
+  const currentPost = posts[currentIndex];
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'w') {
+        goToPrevious();
+      } else if (e.key === 'ArrowDown' || e.key === 's') {
+        goToNext();
+      } else if (e.key === 'Escape') {
+        onExit();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex, posts.length]);
+
+  // Load more when near the end
+  useEffect(() => {
+    if (currentIndex >= posts.length - 3 && hasMore && !isLoading) {
+      onLoadMore();
+    }
+  }, [currentIndex, posts.length, hasMore, isLoading, onLoadMore]);
+
+  // Pause videos that are not visible
+  useEffect(() => {
+    videoRefs.current.forEach((video, index) => {
+      if (index === currentIndex) {
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    });
+  }, [currentIndex]);
+
+  const goToPrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
+  const goToNext = () => {
+    if (currentIndex < posts.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!currentPost) return;
+    
+    const url = e621Api.getDownloadUrl(currentPost);
+    if (!url) {
+      toast.error('Download non disponibile');
+      return;
+    }
+
+    // Open in new tab as fallback for CORS
+    window.open(url, '_blank');
+    toast.success('Download aperto in nuova scheda');
+  };
+
+  // Handle touch swipe
+  const touchStartY = useRef<number>(0);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const touchEndY = e.changedTouches[0].clientY;
+    const diff = touchStartY.current - touchEndY;
+    
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        goToNext();
+      } else {
+        goToPrevious();
+      }
+    }
+  };
+
+  if (posts.length === 0) {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">Nessun video trovato</p>
+          <button onClick={onExit} className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg">
+            Torna alla galleria
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      ref={containerRef}
+      className="fixed inset-0 bg-background z-50 overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Exit button */}
+      <button
+        onClick={onExit}
+        className="absolute top-4 left-4 z-50 p-2 rounded-full bg-background/80 hover:bg-background transition-colors"
+      >
+        <X className="w-6 h-6" />
+      </button>
+
+      {/* Navigation buttons */}
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2">
+        <button
+          onClick={goToPrevious}
+          disabled={currentIndex === 0}
+          className={cn(
+            "p-3 rounded-full bg-background/80 hover:bg-background transition-colors",
+            currentIndex === 0 && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          <ChevronUp className="w-6 h-6" />
+        </button>
+        <button
+          onClick={goToNext}
+          disabled={currentIndex === posts.length - 1 && !hasMore}
+          className={cn(
+            "p-3 rounded-full bg-background/80 hover:bg-background transition-colors",
+            currentIndex === posts.length - 1 && !hasMore && "opacity-50 cursor-not-allowed"
+          )}
+        >
+          <ChevronDown className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Action buttons */}
+      <div className="absolute right-4 bottom-20 z-40 flex flex-col gap-4">
+        <button
+          className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors flex flex-col items-center"
+        >
+          <Heart className={cn("w-6 h-6", currentPost?.is_favorited && "fill-destructive text-destructive")} />
+          <span className="text-xs mt-1">{currentPost?.fav_count || 0}</span>
+        </button>
+        <button
+          onClick={handleDownload}
+          className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors"
+        >
+          <Download className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Progress indicator */}
+      <div className="absolute top-4 right-1/2 translate-x-1/2 z-40 px-3 py-1 rounded-full bg-background/80 text-sm">
+        {currentIndex + 1} / {posts.length}
+      </div>
+
+      {/* Video container */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentPost?.id}
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          transition={{ duration: 0.2 }}
+          className="w-full h-full flex items-center justify-center"
+        >
+          {currentPost && (
+            <video
+              ref={(el) => {
+                if (el) videoRefs.current.set(currentIndex, el);
+              }}
+              src={e621Api.getSampleUrl(currentPost) || e621Api.getDownloadUrl(currentPost) || ''}
+              className="max-w-full max-h-full object-contain"
+              controls
+              autoPlay
+              loop
+              playsInline
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-background/80 text-sm">
+          Caricamento...
+        </div>
+      )}
+    </div>
+  );
+}

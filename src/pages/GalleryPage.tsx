@@ -6,7 +6,10 @@ import { PostGrid } from '@/components/gallery/PostGrid';
 import { PostViewer } from '@/components/gallery/PostViewer';
 import { SearchBar } from '@/components/gallery/SearchBar';
 import { FilterSheet } from '@/components/gallery/FilterSheet';
+import { ShortsViewer } from '@/components/gallery/ShortsViewer';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { LayoutGrid, Play } from 'lucide-react';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -17,13 +20,17 @@ function getGreeting(): string {
 
 export default function GalleryPage() {
   const [posts, setPosts] = useState<E621Post[]>([]);
+  const [shortsPosts, setShortsPosts] = useState<E621Post[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isShortsLoading, setIsShortsLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [shortsPage, setShortsPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [hasMoreShorts, setHasMoreShorts] = useState(true);
   const [selectedPost, setSelectedPost] = useState<E621Post | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
-  const { ratingFilter, mediaFilter } = useSettingsStore();
+  const { ratingFilter, mediaFilter, viewMode, setViewMode } = useSettingsStore();
   const { currentTags, setCurrentTags } = useSearchStore();
   const { credentials, isGuest, isFirstLogin, setNotFirstLogin } = useAuthStore();
 
@@ -63,10 +70,43 @@ export default function GalleryPage() {
     }
   }, [ratingFilter, mediaFilter]);
 
+  const fetchShortsPosts = useCallback(async (searchTags: string, pageNum: number, append = false) => {
+    setIsShortsLoading(true);
+    try {
+      // For shorts, we fetch videos. If there's a search query, apply aspect ratio filter for vertical videos
+      // If no search, show all videos
+      let tags = searchTags ? `${searchTags} type:webm` : 'type:webm';
+      
+      const newPosts = await e621Api.searchPosts({
+        tags: tags,
+        limit: 20,
+        page: pageNum,
+        rating: ratingFilter,
+      });
+      
+      if (append) {
+        setShortsPosts(prev => [...prev, ...newPosts]);
+      } else {
+        setShortsPosts(newPosts);
+      }
+      setHasMoreShorts(newPosts.length === 20);
+    } catch (error) {
+      toast.error('Impossibile caricare i video');
+      console.error(error);
+    } finally {
+      setIsShortsLoading(false);
+    }
+  }, [ratingFilter]);
+
   useEffect(() => {
-    setPage(1);
-    fetchPosts(currentTags, 1, false);
-  }, [currentTags, ratingFilter, mediaFilter, fetchPosts]);
+    if (viewMode === 'gallery') {
+      setPage(1);
+      fetchPosts(currentTags, 1, false);
+    } else {
+      setShortsPage(1);
+      fetchShortsPosts(currentTags, 1, false);
+    }
+  }, [currentTags, ratingFilter, mediaFilter, viewMode, fetchPosts, fetchShortsPosts]);
 
   const handleSearch = (tags: string) => {
     setCurrentTags(tags);
@@ -78,30 +118,39 @@ export default function GalleryPage() {
     fetchPosts(currentTags, nextPage, true);
   };
 
+  const handleLoadMoreShorts = () => {
+    const nextPage = shortsPage + 1;
+    setShortsPage(nextPage);
+    fetchShortsPosts(currentTags, nextPage, true);
+  };
+
   const handleDownload = async (post: E621Post) => {
     const url = e621Api.getDownloadUrl(post);
     if (!url) {
       toast.error('Download non disponibile');
       return;
     }
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `e621_${post.id}.${post.file.ext}`;
-      link.click();
-      URL.revokeObjectURL(link.href);
-      toast.success('Download avviato');
-    } catch {
-      toast.error('Download fallito');
-    }
+    // Open in new tab as fallback for CORS
+    window.open(url, '_blank');
+    toast.success('Download aperto in nuova scheda');
   };
 
   const openViewer = (post: E621Post) => {
     const index = posts.findIndex(p => p.id === post.id);
     setSelectedPost(post);
     setSelectedIndex(index);
+  };
+
+  const handleCloseViewer = (triggerSearch?: boolean) => {
+    setSelectedPost(null);
+    setSelectedIndex(-1);
+    
+    // If tags were modified, the search will automatically trigger via useEffect
+    if (triggerSearch) {
+      // Force refetch
+      setPage(1);
+      fetchPosts(currentTags, 1, false);
+    }
   };
 
   const displayName = credentials?.username || (isGuest ? 'Ospite' : null);
@@ -119,6 +168,35 @@ export default function GalleryPage() {
               </span>
             </div>
           )}
+          
+          {/* View mode toggle */}
+          <div className="flex items-center gap-2 mb-3">
+            <button
+              onClick={() => setViewMode('gallery')}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors",
+                viewMode === 'gallery'
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary hover:bg-secondary/80"
+              )}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="font-medium text-sm">Galleria</span>
+            </button>
+            <button
+              onClick={() => setViewMode('shorts')}
+              className={cn(
+                "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors",
+                viewMode === 'shorts'
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary hover:bg-secondary/80"
+              )}
+            >
+              <Play className="w-4 h-4" />
+              <span className="font-medium text-sm">Shorts</span>
+            </button>
+          </div>
+          
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <SearchBar onSearch={handleSearch} />
@@ -129,22 +207,32 @@ export default function GalleryPage() {
       </header>
 
       {/* Content */}
-      <main className="py-4">
-        <PostGrid
-          posts={posts}
-          isLoading={isLoading}
-          onPostClick={openViewer}
-          onDownload={handleDownload}
-          onLoadMore={handleLoadMore}
-          hasMore={hasMore}
+      {viewMode === 'gallery' ? (
+        <main className="py-4">
+          <PostGrid
+            posts={posts}
+            isLoading={isLoading}
+            onPostClick={openViewer}
+            onDownload={handleDownload}
+            onLoadMore={handleLoadMore}
+            hasMore={hasMore}
+          />
+        </main>
+      ) : (
+        <ShortsViewer
+          posts={shortsPosts}
+          isLoading={isShortsLoading}
+          onLoadMore={handleLoadMoreShorts}
+          hasMore={hasMoreShorts}
+          onExit={() => setViewMode('gallery')}
         />
-      </main>
+      )}
 
       {/* Post Viewer */}
       <PostViewer
         post={selectedPost}
         isOpen={!!selectedPost}
-        onClose={() => setSelectedPost(null)}
+        onClose={handleCloseViewer}
         onPrevious={selectedIndex > 0 ? () => {
           setSelectedPost(posts[selectedIndex - 1]);
           setSelectedIndex(selectedIndex - 1);

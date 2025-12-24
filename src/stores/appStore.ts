@@ -22,11 +22,16 @@ interface SettingsState {
   mediaFilter: MediaFilter;
   darkMode: boolean;
   gridColumns: 2 | 3 | 4;
+  viewMode: 'gallery' | 'shorts';
+  themeHue: number;
+  themeSaturation: number;
   
   setRatingFilter: (filter: RatingFilter) => void;
   setMediaFilter: (filter: MediaFilter) => void;
   setDarkMode: (enabled: boolean) => void;
   setGridColumns: (columns: 2 | 3 | 4) => void;
+  setViewMode: (mode: 'gallery' | 'shorts') => void;
+  setThemeColor: (hue: number, saturation: number) => void;
 }
 
 interface SearchState {
@@ -111,14 +116,33 @@ export const useSettingsStore = create<SettingsState>()(
       mediaFilter: 'all',
       darkMode: true,
       gridColumns: 2,
+      viewMode: 'gallery',
+      themeHue: 215,
+      themeSaturation: 85,
 
       setRatingFilter: (filter) => set({ ratingFilter: filter }),
       setMediaFilter: (filter) => set({ mediaFilter: filter }),
       setDarkMode: (enabled) => set({ darkMode: enabled }),
       setGridColumns: (columns) => set({ gridColumns: columns }),
+      setViewMode: (mode) => set({ viewMode: mode }),
+      setThemeColor: (hue, saturation) => set({ themeHue: hue, themeSaturation: saturation }),
     }),
     {
       name: 'e6-settings',
+      onRehydrateStorage: () => (state) => {
+        // Apply saved theme on rehydration
+        if (state?.themeHue !== undefined && state?.themeSaturation !== undefined) {
+          document.documentElement.style.setProperty('--primary', `${state.themeHue} ${state.themeSaturation}% 55%`);
+          document.documentElement.style.setProperty('--ring', `${state.themeHue} ${state.themeSaturation}% 55%`);
+          document.documentElement.style.setProperty('--accent', `${(state.themeHue + 20) % 360} ${state.themeSaturation}% 55%`);
+        }
+        // Apply dark mode
+        if (state?.darkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      },
     }
   )
 );
