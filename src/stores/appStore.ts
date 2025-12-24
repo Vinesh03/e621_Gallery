@@ -133,6 +133,13 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'e6-settings',
+      version: 2,
+      migrate: (persistedState: any, version: number) => {
+        if (version < 2) {
+          return { ...persistedState, ratingFilter: 'e' };
+        }
+        return persistedState;
+      },
       onRehydrateStorage: () => (state) => {
         // Apply saved theme on rehydration
         if (state?.themeHue !== undefined && state?.themeSaturation !== undefined) {
