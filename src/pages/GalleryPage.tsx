@@ -32,7 +32,7 @@ export default function GalleryPage() {
     if (credentials && isFirstLogin) {
       const greeting = getGreeting();
       toast.success(`${greeting}, ${credentials.username}!`, {
-        description: 'Bentornato su E6 Gallery',
+        description: 'Bentornato su e621 Gallery',
       });
       setNotFirstLogin();
     }
