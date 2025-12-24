@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.4488054ac1704234ab8d7d562f84d7f9',
+  appId: 'com.e621.seeker86',
   appName: 'E6 Gallery',
   webDir: 'dist',
   server: {
