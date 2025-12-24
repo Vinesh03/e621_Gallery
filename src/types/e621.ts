@@ -95,15 +95,24 @@ export interface E621User {
 }
 
 export type RatingFilter = 's' | 'q' | 'e' | 'sq' | 'se' | 'qe' | 'sqe';
+export type MediaFilter = 'all' | 'image' | 'video';
 
 export interface SearchParams {
   tags?: string;
   limit?: number;
   page?: number | string;
   rating?: RatingFilter;
+  mediaType?: MediaFilter;
 }
 
 export interface AuthCredentials {
   username: string;
   apiKey: string;
+}
+
+export interface E621Tag {
+  id: number;
+  name: string;
+  post_count: number;
+  category: number;
 }

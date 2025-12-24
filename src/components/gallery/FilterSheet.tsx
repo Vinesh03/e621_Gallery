@@ -1,18 +1,27 @@
-import { useSettingsStore } from '@/stores/appStore';
-import { RatingFilter } from '@/types/e621';
+import { useSettingsStore, useAuthStore } from '@/stores/appStore';
+import { RatingFilter, MediaFilter } from '@/types/e621';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { SlidersHorizontal, Moon, Sun } from 'lucide-react';
+import { SlidersHorizontal, Moon, Sun, LogOut, Image, Film, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import { useNavigate } from 'react-router-dom';
 
 const ratingOptions: { value: RatingFilter; label: string; description: string }[] = [
-  { value: 's', label: 'Safe only', description: 'Only show safe content' },
-  { value: 'sq', label: 'Safe + Questionable', description: 'Safe and questionable content' },
-  { value: 'sqe', label: 'All ratings', description: 'Show all content' },
+  { value: 's', label: 'Solo Safe', description: 'Mostra solo contenuti safe' },
+  { value: 'sq', label: 'Safe + Questionable', description: 'Contenuti safe e questionable' },
+  { value: 'sqe', label: 'Tutti i rating', description: 'Mostra tutti i contenuti' },
+];
+
+const mediaOptions: { value: MediaFilter; label: string; icon: typeof Image }[] = [
+  { value: 'all', label: 'Tutti', icon: Layers },
+  { value: 'image', label: 'Solo Immagini', icon: Image },
+  { value: 'video', label: 'Solo Video', icon: Film },
 ];
 
 export function FilterSheet() {
-  const { ratingFilter, setRatingFilter, darkMode, setDarkMode } = useSettingsStore();
+  const { ratingFilter, setRatingFilter, mediaFilter, setMediaFilter, darkMode, setDarkMode } = useSettingsStore();
+  const { logout, credentials, isGuest } = useAuthStore();
+  const navigate = useNavigate();
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -21,6 +30,11 @@ export function FilterSheet() {
     } else {
       document.documentElement.classList.remove('dark');
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
   };
 
   return (
@@ -32,13 +46,13 @@ export function FilterSheet() {
       </SheetTrigger>
       <SheetContent className="bg-background border-border">
         <SheetHeader>
-          <SheetTitle>Filters & Settings</SheetTitle>
+          <SheetTitle>Filtri & Impostazioni</SheetTitle>
         </SheetHeader>
         
         <div className="mt-6 space-y-6">
           {/* Rating filter */}
           <div className="space-y-3">
-            <h3 className="font-medium text-sm">Content Rating</h3>
+            <h3 className="font-medium text-sm">Rating Contenuti</h3>
             <div className="space-y-2">
               {ratingOptions.map((option) => (
                 <button
@@ -65,6 +79,31 @@ export function FilterSheet() {
             </div>
           </div>
 
+          {/* Media type filter */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-sm">Tipo Media</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {mediaOptions.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => setMediaFilter(option.value)}
+                    className={cn(
+                      "p-3 rounded-lg flex flex-col items-center gap-2 transition-colors",
+                      mediaFilter === option.value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary hover:bg-secondary/80"
+                    )}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="text-xs font-medium">{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Dark mode toggle */}
           <div className="flex items-center justify-between p-3 rounded-lg bg-secondary">
             <div className="flex items-center gap-3">
@@ -80,6 +119,17 @@ export function FilterSheet() {
               onCheckedChange={toggleDarkMode}
             />
           </div>
+
+          {/* Logout button */}
+          {(credentials || isGuest) && (
+            <button
+              onClick={handleLogout}
+              className="w-full p-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="font-medium text-sm">Logout</span>
+            </button>
+          )}
         </div>
       </SheetContent>
     </Sheet>

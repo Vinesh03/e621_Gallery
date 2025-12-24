@@ -1,12 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { useSettingsStore, useSearchStore } from '@/stores/appStore';
+import { useSettingsStore, useSearchStore, useAuthStore } from '@/stores/appStore';
 import { PostGrid } from '@/components/gallery/PostGrid';
 import { PostViewer } from '@/components/gallery/PostViewer';
 import { SearchBar } from '@/components/gallery/SearchBar';
 import { FilterSheet } from '@/components/gallery/FilterSheet';
 import { toast } from 'sonner';
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Buongiorno';
+  if (hour < 18) return 'Buon pomeriggio';
+  return 'Buonasera';
+}
 
 export default function GalleryPage() {
   const [posts, setPosts] = useState<E621Post[]>([]);
@@ -16,8 +23,20 @@ export default function GalleryPage() {
   const [selectedPost, setSelectedPost] = useState<E621Post | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
-  const { ratingFilter } = useSettingsStore();
+  const { ratingFilter, mediaFilter } = useSettingsStore();
   const { currentTags, setCurrentTags } = useSearchStore();
+  const { credentials, isFirstLogin, setNotFirstLogin } = useAuthStore();
+
+  // Show greeting toast on first login
+  useEffect(() => {
+    if (credentials && isFirstLogin) {
+      const greeting = getGreeting();
+      toast.success(`${greeting}, ${credentials.username}!`, {
+        description: 'Bentornato su E6 Gallery',
+      });
+      setNotFirstLogin();
+    }
+  }, [credentials, isFirstLogin, setNotFirstLogin]);
 
   const fetchPosts = useCallback(async (searchTags: string, pageNum: number, append = false) => {
     setIsLoading(true);
@@ -27,6 +46,7 @@ export default function GalleryPage() {
         limit: 40,
         page: pageNum,
         rating: ratingFilter,
+        mediaType: mediaFilter,
       });
       
       if (append) {
@@ -36,17 +56,17 @@ export default function GalleryPage() {
       }
       setHasMore(newPosts.length === 40);
     } catch (error) {
-      toast.error('Failed to load posts');
+      toast.error('Impossibile caricare i post');
       console.error(error);
     } finally {
       setIsLoading(false);
     }
-  }, [ratingFilter]);
+  }, [ratingFilter, mediaFilter]);
 
   useEffect(() => {
     setPage(1);
     fetchPosts(currentTags, 1, false);
-  }, [currentTags, ratingFilter, fetchPosts]);
+  }, [currentTags, ratingFilter, mediaFilter, fetchPosts]);
 
   const handleSearch = (tags: string) => {
     setCurrentTags(tags);
@@ -61,7 +81,7 @@ export default function GalleryPage() {
   const handleDownload = async (post: E621Post) => {
     const url = e621Api.getDownloadUrl(post);
     if (!url) {
-      toast.error('Download not available');
+      toast.error('Download non disponibile');
       return;
     }
     try {
@@ -72,9 +92,9 @@ export default function GalleryPage() {
       link.download = `e621_${post.id}.${post.file.ext}`;
       link.click();
       URL.revokeObjectURL(link.href);
-      toast.success('Download started');
+      toast.success('Download avviato');
     } catch {
-      toast.error('Download failed');
+      toast.error('Download fallito');
     }
   };
 
@@ -89,6 +109,14 @@ export default function GalleryPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border">
         <div className="container py-3">
+          {/* User greeting */}
+          {credentials && (
+            <div className="flex items-center justify-end mb-2">
+              <span className="text-sm text-muted-foreground">
+                Ciao, <span className="text-primary font-medium">{credentials.username}</span>
+              </span>
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <SearchBar onSearch={handleSearch} />

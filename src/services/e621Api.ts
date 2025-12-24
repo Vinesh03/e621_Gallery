@@ -1,4 +1,4 @@
-import { E621Post, E621PostsResponse, E621User, SearchParams, AuthCredentials } from '@/types/e621';
+import { E621Post, E621PostsResponse, E621User, SearchParams, AuthCredentials, E621Tag, MediaFilter } from '@/types/e621';
 
 const BASE_URL = 'https://e621.net';
 const USER_AGENT = 'E6Gallery/1.0 (Lovable App)';
@@ -63,12 +63,51 @@ class E621Api {
     return ratingMap[rating] || '';
   }
 
-  async searchPosts(params: SearchParams): Promise<E621Post[]> {
-    const { tags = '', limit = 20, page, rating } = params;
+  private buildMediaTypeQuery(mediaType?: MediaFilter): string {
+    if (!mediaType || mediaType === 'all') return '';
     
-    // Build search query with rating filter
+    if (mediaType === 'video') {
+      return 'type:webm';
+    } else if (mediaType === 'image') {
+      return '-type:webm -type:gif';
+    }
+    return '';
+  }
+
+  async searchTags(query: string, limit = 10): Promise<E621Tag[]> {
+    if (!query || query.length < 2) return [];
+    
+    const url = this.buildUrl('/tags.json', {
+      'search[name_matches]': `${query}*`,
+      'search[order]': 'count',
+      'limit': limit,
+    });
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('Tag search error:', error);
+      return [];
+    }
+  }
+
+  async searchPosts(params: SearchParams): Promise<E621Post[]> {
+    const { tags = '', limit = 20, page, rating, mediaType } = params;
+    
+    // Build search query with rating and media type filters
     const ratingQuery = this.buildRatingQuery(rating);
-    const fullTags = ratingQuery ? `${tags} ${ratingQuery}`.trim() : tags;
+    const mediaQuery = this.buildMediaTypeQuery(mediaType);
+    const fullTags = [tags, ratingQuery, mediaQuery].filter(Boolean).join(' ').trim();
 
     const url = this.buildUrl('/posts.json', {
       tags: fullTags || undefined,
