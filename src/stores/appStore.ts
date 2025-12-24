@@ -25,6 +25,7 @@ interface SettingsState {
   viewMode: 'gallery' | 'shorts';
   themeHue: number;
   themeSaturation: number;
+  savedMediaFilter: MediaFilter; // Saved filter before switching to shorts
   
   setRatingFilter: (filter: RatingFilter) => void;
   setMediaFilter: (filter: MediaFilter) => void;
@@ -32,6 +33,7 @@ interface SettingsState {
   setGridColumns: (columns: 2 | 3 | 4) => void;
   setViewMode: (mode: 'gallery' | 'shorts') => void;
   setThemeColor: (hue: number, saturation: number) => void;
+  setSavedMediaFilter: (filter: MediaFilter) => void;
 }
 
 interface SearchState {
@@ -112,13 +114,14 @@ export const useAuthStore = create<AuthState>()(
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
-      ratingFilter: 's',
+      ratingFilter: 'e',
       mediaFilter: 'all',
       darkMode: true,
       gridColumns: 2,
       viewMode: 'gallery',
       themeHue: 215,
       themeSaturation: 85,
+      savedMediaFilter: 'all',
 
       setRatingFilter: (filter) => set({ ratingFilter: filter }),
       setMediaFilter: (filter) => set({ mediaFilter: filter }),
@@ -126,6 +129,7 @@ export const useSettingsStore = create<SettingsState>()(
       setGridColumns: (columns) => set({ gridColumns: columns }),
       setViewMode: (mode) => set({ viewMode: mode }),
       setThemeColor: (hue, saturation) => set({ themeHue: hue, themeSaturation: saturation }),
+      setSavedMediaFilter: (filter) => set({ savedMediaFilter: filter }),
     }),
     {
       name: 'e6-settings',
