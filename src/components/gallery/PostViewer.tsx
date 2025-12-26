@@ -8,6 +8,7 @@ import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { nativeVideoPlayer } from '@/services/nativeVideoPlayer';
 
 interface PostViewerProps {
   post: E621Post | null;
@@ -257,20 +258,38 @@ export function PostViewer({
                   )}
 
                   {isVideo ? (
-                    <video
-                      src={mediaUrl || ''}
-                      controls
-                      autoPlay
-                      loop
-                      playsInline
-                      muted
-                      preload="auto"
-                      crossOrigin="anonymous"
-                      className="max-w-full max-h-full object-contain"
-                      onError={() => {
-                        toast.error('Video non riproducibile');
-                      }}
-                    />
+                    <div className="relative flex items-center justify-center w-full h-full">
+                      {/* Video thumbnail/preview */}
+                      <div 
+                        className="relative cursor-pointer group"
+                        onClick={async () => {
+                          const videoUrl = e621Api.getDownloadUrl(post) || mediaUrl;
+                          if (videoUrl) {
+                            const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
+                            if (!success && !nativeVideoPlayer.isNative()) {
+                              toast.info('Video aperto nel browser');
+                            }
+                          }
+                        }}
+                      >
+                        {/* Preview image or poster */}
+                        <img
+                          src={post.preview.url || post.sample?.url || ''}
+                          alt={`Video preview ${post.id}`}
+                          className="max-w-full max-h-full object-contain"
+                        />
+                        {/* Play button overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/30 group-hover:bg-background/50 transition-colors">
+                          <div className="w-16 h-16 rounded-full bg-primary/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                            <Play className="w-8 h-8 text-primary-foreground ml-1" fill="currentColor" />
+                          </div>
+                        </div>
+                        {/* Video badge */}
+                        <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-background/80 text-xs font-medium">
+                          {post.file.ext?.toUpperCase()} • {Math.round((post.file.size || 0) / 1024 / 1024 * 10) / 10}MB
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <img
                       src={mediaUrl || ''}
@@ -509,25 +528,41 @@ export function PostViewer({
                 >
                   {isVideo ? (
                     <div className="flex flex-col items-center gap-4">
-                      {/* Try to play video, show fallback if it fails */}
-                      <video
-                        src={mediaUrl || ''}
-                        controls
-                        autoPlay
-                        loop
-                        playsInline
-                        muted
-                        className="max-w-full max-h-[60vh] rounded-lg"
-                        onError={() => {
-                          toast.error('Video non riproducibile, apri su e621');
+                      {/* Video thumbnail with play button */}
+                      <div 
+                        className="relative cursor-pointer group"
+                        onClick={async () => {
+                          const videoUrl = e621Api.getDownloadUrl(post) || mediaUrl;
+                          if (videoUrl) {
+                            const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
+                            if (!success && !nativeVideoPlayer.isNative()) {
+                              toast.info('Video aperto nel browser');
+                            }
+                          }
                         }}
-                      />
+                      >
+                        <img
+                          src={post.sample?.url || post.preview.url || ''}
+                          alt={`Video preview ${post.id}`}
+                          className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                        />
+                        {/* Play overlay */}
+                        <div className="absolute inset-0 flex items-center justify-center bg-background/30 group-hover:bg-background/50 transition-colors rounded-lg">
+                          <div className="w-20 h-20 rounded-full bg-primary/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                            <Play className="w-10 h-10 text-primary-foreground ml-1" fill="currentColor" />
+                          </div>
+                        </div>
+                        {/* Video info badge */}
+                        <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded bg-background/80 text-sm font-medium">
+                          {post.file.ext?.toUpperCase()} • {Math.round((post.file.size || 0) / 1024 / 1024 * 10) / 10}MB
+                        </div>
+                      </div>
                       <button
                         onClick={handleOpenOnE621}
-                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
                       >
-                        <Play className="w-4 h-4" />
-                        <span>Apri video su e621</span>
+                        <ExternalLink className="w-4 h-4" />
+                        <span>Apri su e621</span>
                       </button>
                     </div>
                   ) : (
