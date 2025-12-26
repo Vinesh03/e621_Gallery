@@ -44,13 +44,25 @@ interface SettingsState {
   setSavedMediaFilter: (filter: MediaFilter) => void;
 }
 
+interface CachedPosts {
+  posts: any[];
+  tags: string;
+  ratingFilter: string;
+  mediaFilter: string;
+  timestamp: number;
+}
+
 interface SearchState {
   currentTags: string;
   searchHistory: string[];
+  cachedPosts: CachedPosts | null;
   
   setCurrentTags: (tags: string) => void;
   addToHistory: (tags: string) => void;
   clearHistory: () => void;
+  setCachedPosts: (posts: any[], tags: string, ratingFilter: string, mediaFilter: string) => void;
+  getCachedPosts: (tags: string, ratingFilter: string, mediaFilter: string) => any[] | null;
+  clearCache: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -215,11 +227,14 @@ export const useSettingsStore = create<SettingsState>()(
   )
 );
 
+const CACHE_MAX_AGE = 30 * 60 * 1000; // 30 minutes
+
 export const useSearchStore = create<SearchState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       currentTags: '',
       searchHistory: [],
+      cachedPosts: null,
 
       setCurrentTags: (tags) => set({ currentTags: tags }),
       
@@ -232,9 +247,43 @@ export const useSearchStore = create<SearchState>()(
       }),
       
       clearHistory: () => set({ searchHistory: [] }),
+
+      setCachedPosts: (posts, tags, ratingFilter, mediaFilter) => set({
+        cachedPosts: {
+          posts,
+          tags,
+          ratingFilter,
+          mediaFilter,
+          timestamp: Date.now(),
+        }
+      }),
+
+      getCachedPosts: (tags, ratingFilter, mediaFilter) => {
+        const cached = get().cachedPosts;
+        if (!cached) return null;
+        
+        // Check if cache matches current filters
+        if (cached.tags !== tags || cached.ratingFilter !== ratingFilter || cached.mediaFilter !== mediaFilter) {
+          return null;
+        }
+        
+        // Check if cache is still valid (30 min)
+        if (Date.now() - cached.timestamp > CACHE_MAX_AGE) {
+          return null;
+        }
+        
+        return cached.posts;
+      },
+
+      clearCache: () => set({ cachedPosts: null }),
     }),
     {
       name: 'e6-search',
+      partialize: (state) => ({
+        currentTags: state.currentTags,
+        searchHistory: state.searchHistory,
+        cachedPosts: state.cachedPosts,
+      }),
     }
   )
 );

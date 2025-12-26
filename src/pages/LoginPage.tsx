@@ -99,18 +99,15 @@ export default function LoginPage() {
                         </Button>
                         <Button
                           variant="default"
-                          size="sm"
-                          className="h-8"
+                          size="icon"
+                          className="h-8 w-8"
                           onClick={() => handleSavedAccountLogin(account.username)}
                           disabled={isLoading}
                         >
                           {isLoading ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
-                            <>
-                              <LogIn className="w-4 h-4 mr-1" />
-                              Accedi
-                            </>
+                            <LogIn className="w-4 h-4" />
                           )}
                         </Button>
                       </div>
