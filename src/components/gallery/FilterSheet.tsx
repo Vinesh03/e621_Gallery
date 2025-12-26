@@ -20,7 +20,12 @@ const mediaOptions: { value: MediaFilter; label: string; icon: typeof Image }[] 
   { value: 'video', label: 'Solo Video', icon: Film },
 ];
 
-export function FilterSheet() {
+interface FilterSheetProps {
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   const { ratingFilter, setRatingFilter, mediaFilter, setMediaFilter, darkMode, setDarkMode } = useSettingsStore();
   const { logout, credentials, isGuest } = useAuthStore();
   const navigate = useNavigate();
@@ -40,12 +45,14 @@ export function FilterSheet() {
   };
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <button className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
-          <SlidersHorizontal className="w-5 h-5" />
-        </button>
-      </SheetTrigger>
+    <Sheet open={isOpen} onOpenChange={onOpenChange}>
+      {!isOpen && onOpenChange === undefined && (
+        <SheetTrigger asChild>
+          <button className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
+            <SlidersHorizontal className="w-5 h-5" />
+          </button>
+        </SheetTrigger>
+      )}
       <SheetContent className="bg-background border-border overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Filtri & Impostazioni</SheetTitle>
