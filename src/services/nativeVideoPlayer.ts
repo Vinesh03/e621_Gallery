@@ -1,6 +1,4 @@
 import { Capacitor } from '@capacitor/core';
-import { Browser } from '@capacitor/browser';
-import { CapacitorVideoPlayer } from 'capacitor-video-player';
 
 const FULLSCREEN_PLAYER_ID = 'fullscreen';
 
@@ -18,7 +16,10 @@ export const nativeVideoPlayer = {
     }
 
     try {
-      // Ensure we don’t have a stale player instance hanging around
+      // Dynamic import – avoids bundling issues on web
+      const { CapacitorVideoPlayer } = await import('capacitor-video-player');
+
+      // Ensure we don't have a stale player instance hanging around
       await CapacitorVideoPlayer.stopAllPlayers();
 
       const initResult = await CapacitorVideoPlayer.initPlayer({
@@ -48,8 +49,9 @@ export const nativeVideoPlayer = {
     } catch (error) {
       console.error('Native video player error:', error);
 
-      // Fallback: open externally (often handles more codecs than ExoPlayer on some devices)
+      // Fallback: open externally via Capacitor Browser plugin
       try {
+        const { Browser } = await import('@capacitor/browser');
         await Browser.open({ url });
       } catch (e) {
         console.error('Browser fallback failed:', e);
@@ -67,6 +69,7 @@ export const nativeVideoPlayer = {
     if (!Capacitor.isNativePlatform()) return;
 
     try {
+      const { CapacitorVideoPlayer } = await import('capacitor-video-player');
       await CapacitorVideoPlayer.stopAllPlayers();
     } catch (error) {
       console.error('Error stopping native player:', error);
