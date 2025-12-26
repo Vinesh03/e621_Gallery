@@ -32,7 +32,7 @@ export default function GalleryPage() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
   const { ratingFilter, mediaFilter, viewMode, setViewMode } = useSettingsStore();
-  const { currentTags, setCurrentTags } = useSearchStore();
+  const { currentTags, setCurrentTags, getCachedPosts, setCachedPosts } = useSearchStore();
   const { credentials, isGuest, isFirstLogin, setNotFirstLogin } = useAuthStore();
 
   // Show greeting toast on first login
@@ -46,7 +46,19 @@ export default function GalleryPage() {
     }
   }, [credentials, isFirstLogin, setNotFirstLogin]);
 
-  const fetchPosts = useCallback(async (searchTags: string, pageNum: number, append = false) => {
+  const fetchPosts = useCallback(async (searchTags: string, pageNum: number, append = false, skipCache = false) => {
+    // Try to load from cache for first page
+    if (pageNum === 1 && !append && !skipCache) {
+      const cachedPosts = getCachedPosts(searchTags, ratingFilter, mediaFilter);
+      if (cachedPosts && cachedPosts.length > 0) {
+        setPosts(cachedPosts);
+        setHasMore(cachedPosts.length === 40);
+        // Fetch in background to check for new posts
+        fetchPostsInBackground(searchTags);
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
       const newPosts = await e621Api.searchPosts({
@@ -61,6 +73,10 @@ export default function GalleryPage() {
         setPosts(prev => [...prev, ...newPosts]);
       } else {
         setPosts(newPosts);
+        // Cache first page results
+        if (pageNum === 1) {
+          setCachedPosts(newPosts, searchTags, ratingFilter, mediaFilter);
+        }
       }
       setHasMore(newPosts.length === 40);
     } catch (error) {
@@ -69,7 +85,33 @@ export default function GalleryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [ratingFilter, mediaFilter]);
+  }, [ratingFilter, mediaFilter, getCachedPosts, setCachedPosts]);
+
+  // Background fetch to update cache with new posts
+  const fetchPostsInBackground = useCallback(async (searchTags: string) => {
+    try {
+      const newPosts = await e621Api.searchPosts({
+        tags: searchTags,
+        limit: 40,
+        page: 1,
+        rating: ratingFilter,
+        mediaType: mediaFilter,
+      });
+      
+      const cachedPosts = getCachedPosts(searchTags, ratingFilter, mediaFilter);
+      
+      // Check if there are new posts by comparing first post IDs
+      if (cachedPosts && newPosts.length > 0 && cachedPosts.length > 0) {
+        if (newPosts[0].id !== cachedPosts[0].id) {
+          // New posts available, update
+          setPosts(newPosts);
+          setCachedPosts(newPosts, searchTags, ratingFilter, mediaFilter);
+        }
+      }
+    } catch (error) {
+      console.error('Background fetch failed:', error);
+    }
+  }, [ratingFilter, mediaFilter, getCachedPosts, setCachedPosts]);
 
   const fetchShortsPosts = useCallback(async (searchTags: string, pageNum: number, append = false) => {
     setIsShortsLoading(true);
