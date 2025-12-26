@@ -66,6 +66,9 @@ export function PostViewer({
   const [isDisliking, setIsDisliking] = useState(false);
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [localPost, setLocalPost] = useState<E621Post | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  // Track user's current vote: 1 = liked, -1 = disliked, 0 = no vote
+  const [userVote, setUserVote] = useState<1 | -1 | 0>(0);
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -73,10 +76,28 @@ export function PostViewer({
   const { currentTags, setCurrentTags } = useSearchStore();
   const { isGuest } = useAuthStore();
 
-  // Sync local post with prop
+  // Sync local post with prop and fetch fresh stats
   useEffect(() => {
-    setLocalPost(post);
-  }, [post]);
+    if (post && isOpen) {
+      setLocalPost(post);
+      setUserVote(0); // Reset vote state when post changes
+      
+      // Fetch fresh post data from API
+      const fetchFreshStats = async () => {
+        setIsLoadingStats(true);
+        try {
+          const freshPost = await e621Api.getPost(post.id);
+          setLocalPost(freshPost);
+        } catch (error) {
+          console.error('Error fetching fresh post stats:', error);
+        } finally {
+          setIsLoadingStats(false);
+        }
+      };
+      
+      fetchFreshStats();
+    }
+  }, [post?.id, isOpen]);
 
   // Reset state when post changes
   useEffect(() => {
@@ -116,12 +137,15 @@ export function PostViewer({
     
     setIsLiking(true);
     try {
-      const result = await e621Api.votePost(localPost.id, 1);
+      // If already liked, remove like (vote 0)
+      const newScore = userVote === 1 ? 0 : 1;
+      const result = await e621Api.votePost(localPost.id, newScore as 1 | -1 | 0);
       setLocalPost(prev => prev ? {
         ...prev,
         score: { up: result.up, down: result.down, total: result.score }
       } : null);
-      toast.success('Like aggiunto!');
+      setUserVote(newScore as 1 | -1 | 0);
+      toast.success(newScore === 1 ? 'Like aggiunto!' : 'Like rimosso');
     } catch (error) {
       toast.error('Errore nel mettere like');
       console.error(error);
@@ -138,12 +162,15 @@ export function PostViewer({
     
     setIsDisliking(true);
     try {
-      const result = await e621Api.votePost(localPost.id, -1);
+      // If already disliked, remove dislike (vote 0)
+      const newScore = userVote === -1 ? 0 : -1;
+      const result = await e621Api.votePost(localPost.id, newScore as 1 | -1 | 0);
       setLocalPost(prev => prev ? {
         ...prev,
         score: { up: result.up, down: result.down, total: result.score }
       } : null);
-      toast.success('Dislike aggiunto!');
+      setUserVote(newScore as 1 | -1 | 0);
+      toast.success(newScore === -1 ? 'Dislike aggiunto!' : 'Dislike rimosso');
     } catch (error) {
       toast.error('Errore nel mettere dislike');
       console.error(error);
@@ -224,13 +251,17 @@ export function PostViewer({
   };
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    // If dragged down enough, expand the info panel
+    // Swipe DOWN = open info (positive Y offset)
     if (info.offset.y > 50 && !mobileInfoExpanded) {
       setMobileInfoExpanded(true);
     }
-    // If dragged up enough, collapse the info panel
-    if (info.offset.y < -50 && mobileInfoExpanded) {
-      setMobileInfoExpanded(false);
+    // Swipe UP = if info is open, close it. If info is closed, close the post viewer
+    if (info.offset.y < -50) {
+      if (mobileInfoExpanded) {
+        setMobileInfoExpanded(false);
+      } else {
+        handleClose();
+      }
     }
   };
 
@@ -296,6 +327,7 @@ export function PostViewer({
                   <span className={cn("text-sm font-medium", ratingColors[localPost.rating])}>
                     {ratingLabels[localPost.rating]}
                   </span>
+                  {isLoadingStats && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -453,7 +485,7 @@ export function PostViewer({
                     {isLiking ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
-                      <ThumbsUp className="w-5 h-5" />
+                      <ThumbsUp className={cn("w-5 h-5", userVote === 1 && "fill-primary text-primary")} />
                     )}
                     <span className="text-xs">{localPost.score.up}</span>
                   </button>
@@ -465,7 +497,7 @@ export function PostViewer({
                     {isDisliking ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
-                      <ThumbsDown className="w-5 h-5" />
+                      <ThumbsDown className={cn("w-5 h-5", userVote === -1 && "fill-destructive text-destructive")} />
                     )}
                     <span className="text-xs">{localPost.score.down}</span>
                   </button>
@@ -661,30 +693,40 @@ export function PostViewer({
                 <span className={cn("text-sm font-medium", ratingColors[localPost.rating])}>
                   {ratingLabels[localPost.rating]}
                 </span>
+                {isLoadingStats && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleLike}
                   disabled={isLiking}
-                  className="p-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-1"
+                  className={cn(
+                    "p-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-1",
+                    userVote === 1 && "bg-primary/10"
+                  )}
                   title="Like"
                 >
-                  {isLiking ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className="w-4 h-4" />}
+                  {isLiking ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsUp className={cn("w-4 h-4", userVote === 1 && "fill-primary text-primary")} />}
                   <span className="text-xs">{localPost.score.up}</span>
                 </button>
                 <button
                   onClick={handleDislike}
                   disabled={isDisliking}
-                  className="p-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-1"
+                  className={cn(
+                    "p-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-1",
+                    userVote === -1 && "bg-destructive/10"
+                  )}
                   title="Dislike"
                 >
-                  {isDisliking ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsDown className="w-4 h-4" />}
+                  {isDisliking ? <Loader2 className="w-4 h-4 animate-spin" /> : <ThumbsDown className={cn("w-4 h-4", userVote === -1 && "fill-destructive text-destructive")} />}
                   <span className="text-xs">{localPost.score.down}</span>
                 </button>
                 <button
                   onClick={handleFavorite}
                   disabled={isFavoriting}
-                  className="p-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-1"
+                  className={cn(
+                    "p-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-1",
+                    localPost.is_favorited && "bg-primary/10"
+                  )}
                   title="Preferiti"
                 >
                   {isFavoriting ? (
@@ -830,8 +872,8 @@ export function PostViewer({
                                 <Play className="w-10 h-10 text-primary-foreground ml-1" fill="currentColor" />
                               </div>
                             </div>
-                            {/* Video info badge */}
-                            <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded bg-background/80 text-sm font-medium">
+                            {/* Video badge */}
+                            <div className="absolute bottom-4 right-4 px-3 py-1.5 rounded-lg bg-background/80 text-sm font-medium">
                               {localPost.file.ext?.toUpperCase()} • {Math.round((localPost.file.size || 0) / 1024 / 1024 * 10) / 10}MB
                             </div>
                           </div>
@@ -841,34 +883,35 @@ export function PostViewer({
                       <img
                         src={mediaUrl || ''}
                         alt={`Post ${localPost.id}`}
-                        className="max-w-full max-h-[70vh] object-contain rounded-lg"
+                        className="max-w-full max-h-[80vh] object-contain rounded-lg"
                       />
                     )}
                   </motion.div>
                 </AnimatePresence>
               </div>
 
-              {/* Info sidebar */}
+              {/* Info panel */}
               <AnimatePresence>
                 {showInfo && (
                   <motion.div
                     initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 320, opacity: 1 }}
+                    animate={{ width: 350, opacity: 1 }}
                     exit={{ width: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
                     className="border-l border-border bg-card overflow-hidden"
                   >
-                    <div className="w-[320px] h-full overflow-y-auto p-4 space-y-4">
+                    <div className="w-[350px] h-full overflow-y-auto p-4 space-y-4">
                       {/* Stats */}
                       <div className="space-y-2">
-                        <h3 className="font-semibold text-sm">Stats</h3>
+                        <h3 className="font-semibold">Stats</h3>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="flex items-center gap-2">
                             <Star className={cn("w-4 h-4", localPost.is_favorited && "fill-primary text-primary")} />
-                            <span>{localPost.fav_count}</span>
+                            <span>{localPost.fav_count} favorites</span>
                           </div>
                           <div>Score: {localPost.score.total}</div>
                           <div className="col-span-2 text-muted-foreground">
-                            {localPost.file.width} × {localPost.file.height}
+                            {localPost.file.width}×{localPost.file.height} • {localPost.file.ext?.toUpperCase()} • {Math.round((localPost.file.size || 0) / 1024)} KB
                           </div>
                         </div>
                       </div>
@@ -876,15 +919,15 @@ export function PostViewer({
                       {/* Sources */}
                       {localPost.sources.length > 0 && (
                         <div className="space-y-2">
-                          <h3 className="font-semibold text-sm">Sources</h3>
+                          <h3 className="font-semibold">Sources</h3>
                           <div className="space-y-1">
-                            {localPost.sources.slice(0, 3).map((source, i) => (
+                            {localPost.sources.map((source, i) => (
                               <a
                                 key={i}
                                 href={source}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-xs text-accent hover:underline truncate"
+                                className="flex items-center gap-1 text-sm text-accent hover:underline truncate"
                               >
                                 <ExternalLink className="w-3 h-3 flex-shrink-0" />
                                 <span className="truncate">{source}</span>
@@ -897,9 +940,9 @@ export function PostViewer({
                       {/* Tags */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-sm">Tags ({allTags.length})</h3>
+                          <h3 className="font-semibold">Tags ({allTags.length})</h3>
                           <p className="text-xs text-muted-foreground">
-                            Clicca per aggiungere/rimuovere
+                            Click per aggiungere/rimuovere
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-1">
@@ -934,8 +977,8 @@ export function PostViewer({
                       {/* Description */}
                       {localPost.description && (
                         <div className="space-y-2">
-                          <h3 className="font-semibold text-sm">Description</h3>
-                          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                          <h3 className="font-semibold">Description</h3>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                             {localPost.description}
                           </p>
                         </div>
@@ -946,6 +989,31 @@ export function PostViewer({
               </AnimatePresence>
             </div>
           </div>
+
+          {/* Login Dialog for guests */}
+          <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Accesso richiesto</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Per utilizzare questa funzione devi accedere con il tuo account e621.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <Button variant="outline" onClick={() => setShowLoginDialog(false)}>
+                  <X className="w-4 h-4 mr-2" />
+                  Chiudi
+                </Button>
+                <Button onClick={() => {
+                  const { logout } = useAuthStore.getState();
+                  logout();
+                  navigate('/login');
+                }}>
+                  Accedi
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </DialogContent>
       </Dialog>
 
