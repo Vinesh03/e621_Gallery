@@ -3,18 +3,26 @@ import { persist } from 'zustand/middleware';
 import { AuthCredentials, RatingFilter, MediaFilter } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
 
+interface SavedAccount {
+  username: string;
+  apiKey: string;
+}
+
 interface AuthState {
   credentials: AuthCredentials | null;
   isGuest: boolean;
   isLoading: boolean;
   error: string | null;
   isFirstLogin: boolean;
+  savedAccounts: SavedAccount[];
   
   login: (username: string, apiKey: string) => Promise<boolean>;
   loginAsGuest: () => void;
   logout: () => void;
   clearError: () => void;
   setNotFirstLogin: () => void;
+  loginWithSavedAccount: (username: string) => Promise<boolean>;
+  removeSavedAccount: (username: string) => void;
 }
 
 interface SettingsState {
@@ -47,12 +55,13 @@ interface SearchState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       credentials: null,
       isGuest: false,
       isLoading: false,
       error: null,
       isFirstLogin: true,
+      savedAccounts: [],
 
       login: async (username: string, apiKey: string) => {
         set({ isLoading: true, error: null });
@@ -63,11 +72,17 @@ export const useAuthStore = create<AuthState>()(
         const isValid = await e621Api.validateCredentials();
         
         if (isValid) {
+          // Save account to savedAccounts
+          const existingAccounts = get().savedAccounts;
+          const filteredAccounts = existingAccounts.filter(a => a.username !== username);
+          const newSavedAccounts = [{ username, apiKey }, ...filteredAccounts];
+          
           set((state) => ({ 
             credentials, 
             isGuest: false, 
             isLoading: false,
-            isFirstLogin: state.isFirstLogin
+            isFirstLogin: state.isFirstLogin,
+            savedAccounts: newSavedAccounts,
           }));
           return true;
         } else {
@@ -79,6 +94,44 @@ export const useAuthStore = create<AuthState>()(
           });
           return false;
         }
+      },
+
+      loginWithSavedAccount: async (username: string) => {
+        const savedAccount = get().savedAccounts.find(a => a.username === username);
+        if (!savedAccount) {
+          set({ error: 'Account non trovato' });
+          return false;
+        }
+        
+        set({ isLoading: true, error: null });
+        
+        const credentials = { username: savedAccount.username, apiKey: savedAccount.apiKey };
+        e621Api.setCredentials(credentials);
+        
+        const isValid = await e621Api.validateCredentials();
+        
+        if (isValid) {
+          set({ 
+            credentials, 
+            isGuest: false, 
+            isLoading: false,
+          });
+          return true;
+        } else {
+          e621Api.setCredentials(null);
+          set({ 
+            credentials: null, 
+            isLoading: false, 
+            error: 'Credenziali non più valide' 
+          });
+          return false;
+        }
+      },
+
+      removeSavedAccount: (username: string) => {
+        set((state) => ({
+          savedAccounts: state.savedAccounts.filter(a => a.username !== username),
+        }));
       },
 
       loginAsGuest: () => {
@@ -101,6 +154,7 @@ export const useAuthStore = create<AuthState>()(
         credentials: state.credentials,
         isGuest: state.isGuest,
         isFirstLogin: state.isFirstLogin,
+        savedAccounts: state.savedAccounts,
       }),
       onRehydrateStorage: () => (state) => {
         if (state?.credentials) {
