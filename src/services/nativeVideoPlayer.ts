@@ -16,8 +16,8 @@ export const nativeVideoPlayer = {
     }
 
     try {
-      // Dynamic import – avoids bundling issues on web
-      const { CapacitorVideoPlayer } = await import('capacitor-video-player');
+      // Dynamic import – @vite-ignore avoids bundling issues on web
+      const { CapacitorVideoPlayer } = await import(/* @vite-ignore */ 'capacitor-video-player');
 
       // Ensure we don't have a stale player instance hanging around
       await CapacitorVideoPlayer.stopAllPlayers();
@@ -51,7 +51,7 @@ export const nativeVideoPlayer = {
 
       // Fallback: open externally via Capacitor Browser plugin
       try {
-        const { Browser } = await import('@capacitor/browser');
+        const { Browser } = await import(/* @vite-ignore */ '@capacitor/browser');
         await Browser.open({ url });
       } catch (e) {
         console.error('Browser fallback failed:', e);
@@ -69,7 +69,7 @@ export const nativeVideoPlayer = {
     if (!Capacitor.isNativePlatform()) return;
 
     try {
-      const { CapacitorVideoPlayer } = await import('capacitor-video-player');
+      const { CapacitorVideoPlayer } = await import(/* @vite-ignore */ 'capacitor-video-player');
       await CapacitorVideoPlayer.stopAllPlayers();
     } catch (error) {
       console.error('Error stopping native player:', error);

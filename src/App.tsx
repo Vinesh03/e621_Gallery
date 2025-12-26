@@ -36,12 +36,13 @@ function AppContent() {
 
     (async () => {
       try {
-        const { StatusBar, Style } = await import('@capacitor/status-bar');
+        // @vite-ignore prevents Vite from analyzing this import during build
+        const { StatusBar, Style } = await import(/* @vite-ignore */ '@capacitor/status-bar');
         await StatusBar.setOverlaysWebView({ overlay: false });
         // Dark mode needs LIGHT icons; light mode needs DARK icons
         await StatusBar.setStyle({ style: darkMode ? Style.Light : Style.Dark });
       } catch {
-        // no-op
+        // no-op – plugin not available on web
       }
     })();
   }, [darkMode]);
