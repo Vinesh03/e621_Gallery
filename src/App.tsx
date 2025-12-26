@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useAuthStore, useSettingsStore } from "@/stores/appStore";
 import LoginPage from "@/pages/LoginPage";
 import GalleryPage from "@/pages/GalleryPage";
+import FavoritesPage from "@/pages/FavoritesPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,11 @@ function AppContent() {
       <Route path="/gallery" element={
         <ProtectedRoute>
           <GalleryPage />
+        </ProtectedRoute>
+      } />
+      <Route path="/favorites" element={
+        <ProtectedRoute>
+          <FavoritesPage />
         </ProtectedRoute>
       } />
       <Route path="/" element={<Navigate to="/gallery" replace />} />
