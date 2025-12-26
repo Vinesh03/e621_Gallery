@@ -1,14 +1,17 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { useSearchStore } from '@/stores/appStore';
+import { useSearchStore, useAuthStore } from '@/stores/appStore';
 import { Dialog, DialogContent, DialogDescription } from '@/components/ui/dialog';
-import { X, Download, Heart, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle } from 'lucide-react';
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { X, Download, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { motion, AnimatePresence, useDragControls, PanInfo } from 'framer-motion';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { nativeVideoPlayer } from '@/services/nativeVideoPlayer';
+import { useNavigate } from 'react-router-dom';
 
 interface PostViewerProps {
   post: E621Post | null;
@@ -56,10 +59,13 @@ export function PostViewer({
   const [pendingTagChanges, setPendingTagChanges] = useState<Set<string>>(new Set());
   const [mobileInfoExpanded, setMobileInfoExpanded] = useState(false);
   const [inAppVideoUrl, setInAppVideoUrl] = useState<string | null>(null);
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
   
   const { currentTags, setCurrentTags } = useSearchStore();
+  const { isGuest } = useAuthStore();
 
   // Reset state when post changes
   useEffect(() => {
@@ -353,16 +359,25 @@ export function PostViewer({
 
               {/* Quick actions bar */}
               <div className="flex items-center justify-around p-3 border-t border-border bg-background">
-                <button className="flex flex-col items-center gap-1 p-2">
+                <button 
+                  onClick={() => isGuest ? setShowLoginDialog(true) : toast.info('Funzione like non ancora implementata')}
+                  className="flex flex-col items-center gap-1 p-2"
+                >
                   <ThumbsUp className="w-5 h-5" />
                   <span className="text-xs">{post.score.up}</span>
                 </button>
-                <button className="flex flex-col items-center gap-1 p-2">
+                <button 
+                  onClick={() => isGuest ? setShowLoginDialog(true) : toast.info('Funzione dislike non ancora implementata')}
+                  className="flex flex-col items-center gap-1 p-2"
+                >
                   <ThumbsDown className="w-5 h-5" />
                   <span className="text-xs">{post.score.down}</span>
                 </button>
-                <button className="flex flex-col items-center gap-1 p-2">
-                  <Heart className={cn("w-5 h-5", post.is_favorited && "fill-destructive text-destructive")} />
+                <button 
+                  onClick={() => isGuest ? setShowLoginDialog(true) : toast.info('Funzione preferiti non ancora implementata')}
+                  className="flex flex-col items-center gap-1 p-2"
+                >
+                  <Star className={cn("w-5 h-5", post.is_favorited && "fill-primary text-primary")} />
                   <span className="text-xs">{post.fav_count}</span>
                 </button>
                 <button 
@@ -401,7 +416,7 @@ export function PostViewer({
                         <h3 className="font-semibold text-sm">Stats</h3>
                         <div className="grid grid-cols-3 gap-2 text-sm">
                           <div className="flex items-center gap-2">
-                            <Heart className={cn("w-4 h-4", post.is_favorited && "fill-destructive text-destructive")} />
+                            <Star className={cn("w-4 h-4", post.is_favorited && "fill-primary text-primary")} />
                             <span>{post.fav_count}</span>
                           </div>
                           <div>Score: {post.score.total}</div>
@@ -493,6 +508,31 @@ export function PostViewer({
               </AnimatePresence>
             </motion.div>
           </div>
+
+          {/* Login Dialog for guests */}
+          <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Accesso richiesto</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Per utilizzare questa funzione devi accedere con il tuo account e621.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <Button variant="outline" onClick={() => setShowLoginDialog(false)}>
+                  <X className="w-4 h-4 mr-2" />
+                  Chiudi
+                </Button>
+                <Button onClick={() => {
+                  const { logout } = useAuthStore.getState();
+                  logout();
+                  navigate('/login');
+                }}>
+                  Accedi
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </DialogContent>
       </Dialog>
     );
@@ -681,7 +721,7 @@ export function PostViewer({
                       <h3 className="font-semibold text-sm">Stats</h3>
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         <div className="flex items-center gap-2">
-                          <Heart className={cn("w-4 h-4", post.is_favorited && "fill-destructive text-destructive")} />
+                          <Star className={cn("w-4 h-4", post.is_favorited && "fill-primary text-primary")} />
                           <span>{post.fav_count}</span>
                         </div>
                         <div>Score: {post.score.total}</div>

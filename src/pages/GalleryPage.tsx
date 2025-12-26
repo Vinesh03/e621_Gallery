@@ -10,6 +10,7 @@ import { ShortsViewer } from '@/components/gallery/ShortsViewer';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, Play } from 'lucide-react';
+import { UserMenu } from '@/components/gallery/UserMenu';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -162,14 +163,10 @@ export default function GalleryPage() {
         className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border"
       >
         <div className="container py-3">
-          {/* User greeting */}
-          {displayName && (
-            <div className="flex items-center justify-end mb-2">
-              <span className="text-sm text-muted-foreground">
-                Ciao, <span className="text-primary font-medium">{displayName}</span>
-              </span>
-            </div>
-          )}
+          {/* User menu */}
+          <div className="flex items-center justify-end mb-2">
+            <UserMenu />
+          </div>
           
           {/* View mode toggle */}
           <div className="flex items-center gap-2 mb-3">
