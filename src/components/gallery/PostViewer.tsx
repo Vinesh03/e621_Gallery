@@ -264,11 +264,22 @@ export function PostViewer({
                         className="relative cursor-pointer group"
                         onClick={async () => {
                           const videoUrl = e621Api.getDownloadUrl(post) || mediaUrl;
-                          if (videoUrl) {
+                          if (!videoUrl) return;
+
+                          try {
                             const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
-                            if (!success && !nativeVideoPlayer.isNative()) {
-                              toast.info('Video aperto nel browser');
+                            if (!success) {
+                              toast.error(
+                                nativeVideoPlayer.isNative()
+                                  ? 'Impossibile avviare il player nativo'
+                                  : 'Video aperto nel browser'
+                              );
                             }
+                          } catch (err) {
+                            console.error(err);
+                            toast.error('Errore player video', {
+                              description: err instanceof Error ? err.message : String(err),
+                            });
                           }
                         }}
                       >
@@ -533,11 +544,22 @@ export function PostViewer({
                         className="relative cursor-pointer group"
                         onClick={async () => {
                           const videoUrl = e621Api.getDownloadUrl(post) || mediaUrl;
-                          if (videoUrl) {
+                          if (!videoUrl) return;
+
+                          try {
                             const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
-                            if (!success && !nativeVideoPlayer.isNative()) {
-                              toast.info('Video aperto nel browser');
+                            if (!success) {
+                              toast.error(
+                                nativeVideoPlayer.isNative()
+                                  ? 'Impossibile avviare il player nativo'
+                                  : 'Video aperto nel browser'
+                              );
                             }
+                          } catch (err) {
+                            console.error(err);
+                            toast.error('Errore player video', {
+                              description: err instanceof Error ? err.message : String(err),
+                            });
                           }
                         }}
                       >

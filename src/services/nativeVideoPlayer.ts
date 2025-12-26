@@ -1,6 +1,8 @@
 import { Capacitor } from '@capacitor/core';
 import { CapacitorVideoPlayer } from 'capacitor-video-player';
 
+const FULLSCREEN_PLAYER_ID = 'fullscreen';
+
 export const nativeVideoPlayer = {
   isNative: () => Capacitor.isNativePlatform(),
 
@@ -15,11 +17,10 @@ export const nativeVideoPlayer = {
     }
 
     try {
-      await CapacitorVideoPlayer.initPlayer({
+      const initResult = await CapacitorVideoPlayer.initPlayer({
         mode: 'fullscreen',
         url,
-        playerId: 'native-player',
-        componentTag: 'app-fullscreen',
+        playerId: FULLSCREEN_PLAYER_ID,
         title: title || 'Video',
         smallTitle: title || 'Video',
         exitOnEnd: true,
@@ -27,10 +28,18 @@ export const nativeVideoPlayer = {
         pipEnabled: false,
         bkmodeEnabled: false,
         showControls: true,
-        displayMode: 'landscape',
+        displayMode: 'all',
       });
 
-      await CapacitorVideoPlayer.play({ playerId: 'native-player' });
+      if (initResult?.result === false) {
+        throw new Error(initResult?.message || 'initPlayer fallito');
+      }
+
+      const playResult = await CapacitorVideoPlayer.play({ playerId: FULLSCREEN_PLAYER_ID });
+      if (playResult?.result === false) {
+        throw new Error(playResult?.message || 'play fallito');
+      }
+
       return true;
     } catch (error) {
       console.error('Native video player error:', error);
