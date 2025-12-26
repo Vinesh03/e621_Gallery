@@ -7,10 +7,13 @@ import { PostViewer } from '@/components/gallery/PostViewer';
 import { SearchBar } from '@/components/gallery/SearchBar';
 import { FilterSheet } from '@/components/gallery/FilterSheet';
 import { ShortsViewer } from '@/components/gallery/ShortsViewer';
+import { SplashScreen } from '@/components/SplashScreen';
+import { ConnectionError } from '@/components/ConnectionError';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, Play } from 'lucide-react';
 import { UserMenu } from '@/components/gallery/UserMenu';
+import { AnimatePresence } from 'framer-motion';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -30,10 +33,19 @@ export default function GalleryPage() {
   const [hasMoreShorts, setHasMoreShorts] = useState(true);
   const [selectedPost, setSelectedPost] = useState<E621Post | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [showSplash, setShowSplash] = useState(true);
+  const [connectionError, setConnectionError] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   const { ratingFilter, mediaFilter, viewMode, setViewMode } = useSettingsStore();
   const { currentTags, setCurrentTags, getCachedPosts, setCachedPosts } = useSearchStore();
   const { credentials, isGuest, isFirstLogin, setNotFirstLogin } = useAuthStore();
+
+  // Hide splash after 2 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Show greeting toast on first login
   useEffect(() => {
@@ -60,6 +72,7 @@ export default function GalleryPage() {
     }
 
     setIsLoading(true);
+    setConnectionError(false);
     try {
       const newPosts = await e621Api.searchPosts({
         tags: searchTags,
@@ -80,12 +93,17 @@ export default function GalleryPage() {
       }
       setHasMore(newPosts.length === 40);
     } catch (error) {
-      toast.error('Impossibile caricare i post');
       console.error(error);
+      if (!append && posts.length === 0) {
+        setConnectionError(true);
+      } else {
+        toast.error('Impossibile caricare i post');
+      }
     } finally {
       setIsLoading(false);
+      setIsRetrying(false);
     }
-  }, [ratingFilter, mediaFilter, getCachedPosts, setCachedPosts]);
+  }, [ratingFilter, mediaFilter, getCachedPosts, setCachedPosts, posts.length]);
 
   // Background fetch to update cache with new posts
   const fetchPostsInBackground = useCallback(async (searchTags: string) => {
@@ -196,10 +214,24 @@ export default function GalleryPage() {
     }
   };
 
+  const handleRetry = () => {
+    setIsRetrying(true);
+    if (viewMode === 'gallery') {
+      fetchPosts(currentTags, 1, false);
+    } else {
+      fetchShortsPosts(currentTags, 1, false);
+    }
+  };
+
   const displayName = credentials?.username || (isGuest ? 'Ospite' : null);
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      <AnimatePresence>
+        {showSplash && <SplashScreen />}
+      </AnimatePresence>
+
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <header
         className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border"
@@ -248,7 +280,9 @@ export default function GalleryPage() {
       </header>
 
       {/* Content */}
-      {viewMode === 'gallery' ? (
+      {connectionError ? (
+        <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
+      ) : viewMode === 'gallery' ? (
         <main className="py-4">
           <PostGrid
             posts={posts}
@@ -285,6 +319,7 @@ export default function GalleryPage() {
         hasPrevious={selectedIndex > 0}
         hasNext={selectedIndex < posts.length - 1}
       />
-    </div>
+      </div>
+    </>
   );
 }
