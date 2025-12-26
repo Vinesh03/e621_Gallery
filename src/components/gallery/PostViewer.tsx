@@ -269,11 +269,7 @@ export function PostViewer({
                           try {
                             const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
                             if (!success) {
-                              toast.error(
-                                nativeVideoPlayer.isNative()
-                                  ? 'Impossibile avviare il player nativo'
-                                  : 'Video aperto nel browser'
-                              );
+                              toast.info('Video aperto nel browser');
                             }
                           } catch (err) {
                             console.error(err);
@@ -549,11 +545,7 @@ export function PostViewer({
                           try {
                             const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
                             if (!success) {
-                              toast.error(
-                                nativeVideoPlayer.isNative()
-                                  ? 'Impossibile avviare il player nativo'
-                                  : 'Video aperto nel browser'
-                              );
+                              toast.info('Video aperto nel browser');
                             }
                           } catch (err) {
                             console.error(err);
