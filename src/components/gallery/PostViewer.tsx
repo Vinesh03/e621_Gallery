@@ -266,14 +266,22 @@ export function PostViewer({
                           const videoUrl = e621Api.getVideoPlaybackUrl(post) || e621Api.getDownloadUrl(post);
                           if (!videoUrl) return;
 
+                          // Debug: mostra quale URL viene scelto
+                          const urlType = videoUrl.includes('_720p') ? '720p' 
+                            : videoUrl.includes('_480p') ? '480p'
+                            : videoUrl.includes('_alt.mp4') ? 'MP4'
+                            : videoUrl.endsWith('.webm') ? 'WebM (originale)'
+                            : 'Sconosciuto';
+                          console.log(`Video URL (${urlType}):`, videoUrl);
+
                           try {
                             const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
                             if (!success) {
-                              toast.info('Video aperto nel browser');
+                              toast.info(`Video aperto nel browser (${urlType})`);
                             }
                           } catch (err) {
                             console.error(err);
-                            toast.error('Errore player video', {
+                            toast.error(`Errore player video (${urlType})`, {
                               description: err instanceof Error ? err.message : String(err),
                             });
                           }
@@ -542,14 +550,22 @@ export function PostViewer({
                           const videoUrl = e621Api.getVideoPlaybackUrl(post) || e621Api.getDownloadUrl(post);
                           if (!videoUrl) return;
 
+                          // Debug: mostra quale URL viene scelto
+                          const urlType = videoUrl.includes('_720p') ? '720p' 
+                            : videoUrl.includes('_480p') ? '480p'
+                            : videoUrl.includes('_alt.mp4') ? 'MP4'
+                            : videoUrl.endsWith('.webm') ? 'WebM (originale)'
+                            : 'Sconosciuto';
+                          console.log(`Video URL (${urlType}):`, videoUrl);
+
                           try {
                             const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
                             if (!success) {
-                              toast.info('Video aperto nel browser');
+                              toast.info(`Video aperto nel browser (${urlType})`);
                             }
                           } catch (err) {
                             console.error(err);
-                            toast.error('Errore player video', {
+                            toast.error(`Errore player video (${urlType})`, {
                               description: err instanceof Error ? err.message : String(err),
                             });
                           }
