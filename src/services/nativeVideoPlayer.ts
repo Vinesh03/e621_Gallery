@@ -1,6 +1,37 @@
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
 const FULLSCREEN_PLAYER_ID = 'fullscreen';
+
+type PluginResult = { result?: boolean; message?: string };
+
+type CapacitorVideoPlayerPlugin = {
+  initPlayer(options: {
+    mode: 'fullscreen';
+    url: string;
+    playerId: string;
+    title?: string;
+    smallTitle?: string;
+    exitOnEnd?: boolean;
+    loopOnEnd?: boolean;
+    pipEnabled?: boolean;
+    bkmodeEnabled?: boolean;
+    showControls?: boolean;
+    displayMode?: 'all' | 'portrait' | 'landscape';
+  }): Promise<PluginResult>;
+
+  play(options: { playerId: string }): Promise<PluginResult>;
+
+  stopAllPlayers(): Promise<void>;
+};
+
+type BrowserPlugin = {
+  open(options: { url: string }): Promise<void>;
+};
+
+// Avoid build-time dependency on the npm wrappers by registering plugins by name.
+// Native side must still be present on device (via `npx cap sync`).
+const VideoPlayer = registerPlugin<CapacitorVideoPlayerPlugin>('CapacitorVideoPlayer');
+const Browser = registerPlugin<BrowserPlugin>('Browser');
 
 export const nativeVideoPlayer = {
   isNative: () => Capacitor.isNativePlatform(),
@@ -10,19 +41,14 @@ export const nativeVideoPlayer = {
    */
   playFullscreen: async (url: string, title?: string): Promise<boolean> => {
     if (!Capacitor.isNativePlatform()) {
-      // Fallback: open in new tab on web
       window.open(url, '_blank');
       return false;
     }
 
     try {
-      // Dynamic import – @vite-ignore avoids bundling issues on web
-      const { CapacitorVideoPlayer } = await import(/* @vite-ignore */ 'capacitor-video-player');
+      await VideoPlayer.stopAllPlayers();
 
-      // Ensure we don't have a stale player instance hanging around
-      await CapacitorVideoPlayer.stopAllPlayers();
-
-      const initResult = await CapacitorVideoPlayer.initPlayer({
+      const initResult = await VideoPlayer.initPlayer({
         mode: 'fullscreen',
         url,
         playerId: FULLSCREEN_PLAYER_ID,
@@ -40,7 +66,7 @@ export const nativeVideoPlayer = {
         throw new Error(initResult?.message || 'initPlayer fallito');
       }
 
-      const playResult = await CapacitorVideoPlayer.play({ playerId: FULLSCREEN_PLAYER_ID });
+      const playResult = await VideoPlayer.play({ playerId: FULLSCREEN_PLAYER_ID });
       if (playResult?.result === false) {
         throw new Error(playResult?.message || 'play fallito');
       }
@@ -49,9 +75,8 @@ export const nativeVideoPlayer = {
     } catch (error) {
       console.error('Native video player error:', error);
 
-      // Fallback: open externally via Capacitor Browser plugin
+      // Fallback: open externally
       try {
-        const { Browser } = await import(/* @vite-ignore */ '@capacitor/browser');
         await Browser.open({ url });
       } catch (e) {
         console.error('Browser fallback failed:', e);
@@ -62,15 +87,11 @@ export const nativeVideoPlayer = {
     }
   },
 
-  /**
-   * Stop the native player
-   */
   stop: async (): Promise<void> => {
     if (!Capacitor.isNativePlatform()) return;
 
     try {
-      const { CapacitorVideoPlayer } = await import(/* @vite-ignore */ 'capacitor-video-player');
-      await CapacitorVideoPlayer.stopAllPlayers();
+      await VideoPlayer.stopAllPlayers();
     } catch (error) {
       console.error('Error stopping native player:', error);
     }
