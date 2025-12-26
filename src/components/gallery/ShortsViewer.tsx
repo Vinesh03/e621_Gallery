@@ -1,10 +1,20 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { ChevronUp, ChevronDown, Heart, Download, X, ExternalLink } from 'lucide-react';
+import { ChevronUp, ChevronDown, Heart, Download, X, ExternalLink, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useAuthStore } from '@/stores/appStore';
+import { useNavigate } from 'react-router-dom';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 interface ShortsViewerProps {
   posts: E621Post[];
@@ -17,8 +27,12 @@ interface ShortsViewerProps {
 export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: ShortsViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState<'up' | 'down'>('down');
+  const [showLoginDialog, setShowLoginDialog] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
+  
+  const { isGuest, logout } = useAuthStore();
+  const navigate = useNavigate();
 
   const currentPost = posts[currentIndex];
 
@@ -71,6 +85,20 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     });
   }, [currentIndex]);
 
+  const handleLike = () => {
+    if (isGuest) {
+      setShowLoginDialog(true);
+      return;
+    }
+    // TODO: implement like functionality for logged in users
+    toast.info('Funzionalità like in arrivo');
+  };
+
+  const handleLoginRedirect = () => {
+    logout();
+    navigate('/login');
+  };
+
   const handleDownload = () => {
     if (!currentPost) return;
     
@@ -108,6 +136,18 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     }
   };
 
+  // Show loading state instead of "no videos" when initially loading
+  if (posts.length === 0 && isLoading) {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
+        <div className="text-center flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Caricamento video...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (posts.length === 0) {
     return (
       <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
@@ -122,111 +162,142 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="fixed inset-0 bg-background z-50 overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      {/* Exit button */}
-      <button
-        onClick={onExit}
-        className="absolute top-4 left-4 z-50 p-2 rounded-full bg-background/80 hover:bg-background transition-colors"
+    <>
+      <div 
+        ref={containerRef}
+        className="fixed inset-0 bg-background z-50 overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
-        <X className="w-6 h-6" />
-      </button>
-
-      {/* Navigation buttons */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2">
+        {/* Exit button */}
         <button
-          onClick={goToPrevious}
-          disabled={currentIndex === 0}
-          className={cn(
-            "p-3 rounded-full bg-background/80 hover:bg-background transition-colors",
-            currentIndex === 0 && "opacity-50 cursor-not-allowed"
-          )}
+          onClick={onExit}
+          className="absolute top-4 left-4 z-50 p-2 rounded-full bg-background/80 hover:bg-background transition-colors"
         >
-          <ChevronUp className="w-6 h-6" />
+          <X className="w-6 h-6" />
         </button>
-        <button
-          onClick={goToNext}
-          disabled={currentIndex === posts.length - 1 && !hasMore}
-          className={cn(
-            "p-3 rounded-full bg-background/80 hover:bg-background transition-colors",
-            currentIndex === posts.length - 1 && !hasMore && "opacity-50 cursor-not-allowed"
-          )}
-        >
-          <ChevronDown className="w-6 h-6" />
-        </button>
-      </div>
 
-      {/* Action buttons */}
-      <div className="absolute right-4 bottom-20 z-40 flex flex-col gap-4">
-        <button
-          className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors flex flex-col items-center"
-        >
-          <Heart className={cn("w-6 h-6", currentPost?.is_favorited && "fill-destructive text-destructive")} />
-          <span className="text-xs mt-1">{currentPost?.fav_count || 0}</span>
-        </button>
-        <button
-          onClick={handleOpenOnE621}
-          className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors"
-          title="Apri su e621"
-        >
-          <ExternalLink className="w-6 h-6" />
-        </button>
-        <button
-          onClick={handleDownload}
-          className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors"
-        >
-          <Download className="w-6 h-6" />
-        </button>
-      </div>
-
-      {/* Progress indicator */}
-      <div className="absolute top-4 right-1/2 translate-x-1/2 z-40 px-3 py-1 rounded-full bg-background/80 text-sm">
-        {currentIndex + 1} / {posts.length}
-      </div>
-
-      {/* Video container */}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={currentPost?.id}
-          initial={{ opacity: 0, y: direction === 'down' ? 100 : -100 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: direction === 'down' ? -100 : 100 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          className="w-full h-full flex items-center justify-center"
-        >
-          {currentPost && (
-            <div className="flex flex-col items-center gap-4 w-full h-full justify-center">
-              <video
-                ref={(el) => {
-                  if (el) videoRefs.current.set(currentIndex, el);
-                }}
-                src={e621Api.getVideoPlaybackUrl(currentPost) || e621Api.getDownloadUrl(currentPost) || ''}
-                className="max-w-full max-h-[80vh] object-contain"
-                controls
-                autoPlay
-                loop
-                playsInline
-                muted
-                preload="auto"
-                onError={() => {
-                  toast.error('Video non riproducibile');
-                }}
-              />
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Loading indicator */}
-      {isLoading && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-background/80 text-sm">
-          Caricamento...
+        {/* Navigation buttons */}
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2">
+          <button
+            onClick={goToPrevious}
+            disabled={currentIndex === 0}
+            className={cn(
+              "p-3 rounded-full bg-background/80 hover:bg-background transition-colors",
+              currentIndex === 0 && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <ChevronUp className="w-6 h-6" />
+          </button>
+          <button
+            onClick={goToNext}
+            disabled={currentIndex === posts.length - 1 && !hasMore}
+            className={cn(
+              "p-3 rounded-full bg-background/80 hover:bg-background transition-colors",
+              currentIndex === posts.length - 1 && !hasMore && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <ChevronDown className="w-6 h-6" />
+          </button>
         </div>
-      )}
-    </div>
+
+        {/* Action buttons */}
+        <div className="absolute right-4 bottom-20 z-40 flex flex-col gap-4">
+          <button
+            onClick={handleLike}
+            className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors flex flex-col items-center"
+          >
+            <Heart className={cn("w-6 h-6", currentPost?.is_favorited && "fill-destructive text-destructive")} />
+            <span className="text-xs mt-1">{currentPost?.fav_count || 0}</span>
+          </button>
+          <button
+            onClick={handleOpenOnE621}
+            className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors"
+            title="Apri su e621"
+          >
+            <ExternalLink className="w-6 h-6" />
+          </button>
+          <button
+            onClick={handleDownload}
+            className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors"
+          >
+            <Download className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Progress indicator */}
+        <div className="absolute top-4 right-1/2 translate-x-1/2 z-40 px-3 py-1 rounded-full bg-background/80 text-sm">
+          {currentIndex + 1} / {posts.length}
+        </div>
+
+        {/* Video container */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={currentPost?.id}
+            initial={{ opacity: 0, y: direction === 'down' ? 100 : -100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: direction === 'down' ? -100 : 100 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="w-full h-full flex items-center justify-center"
+          >
+            {currentPost && (
+              <div className="flex flex-col items-center gap-4 w-full h-full justify-center">
+                <video
+                  ref={(el) => {
+                    if (el) videoRefs.current.set(currentIndex, el);
+                  }}
+                  src={e621Api.getVideoPlaybackUrl(currentPost) || e621Api.getDownloadUrl(currentPost) || ''}
+                  className="max-w-full max-h-[80vh] object-contain"
+                  controls
+                  autoPlay
+                  loop
+                  playsInline
+                  muted
+                  preload="auto"
+                  onError={() => {
+                    toast.error('Video non riproducibile');
+                  }}
+                />
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-background/80 text-sm">
+            Caricamento...
+          </div>
+        )}
+      </div>
+
+      {/* Login Required Dialog */}
+      <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <div className="flex justify-between items-start">
+              <AlertDialogTitle>Accesso richiesto</AlertDialogTitle>
+              <button
+                onClick={() => setShowLoginDialog(false)}
+                className="p-1 rounded-full hover:bg-secondary transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <AlertDialogDescription>
+              Per mettere like ai post devi accedere con il tuo account e621.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowLoginDialog(false)}>
+              Annulla
+            </Button>
+            <Button onClick={handleLoginRedirect}>
+              Accedi
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
