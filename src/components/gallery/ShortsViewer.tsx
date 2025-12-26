@@ -204,7 +204,7 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
                 ref={(el) => {
                   if (el) videoRefs.current.set(currentIndex, el);
                 }}
-                src={e621Api.getSampleUrl(currentPost) || e621Api.getDownloadUrl(currentPost) || ''}
+                src={e621Api.getVideoPlaybackUrl(currentPost) || e621Api.getDownloadUrl(currentPost) || ''}
                 className="max-w-full max-h-[80vh] object-contain"
                 controls
                 autoPlay
@@ -212,20 +212,10 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
                 playsInline
                 muted
                 preload="auto"
-                crossOrigin="anonymous"
-                webkit-playsinline="true"
-                x-webkit-airplay="allow"
                 onError={() => {
                   toast.error('Video non riproducibile');
                 }}
               />
-              <button
-                onClick={handleOpenOnE621}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                <ExternalLink className="w-4 h-4" />
-                <span>Se non funziona, apri su e621</span>
-              </button>
             </div>
           )}
         </motion.div>
