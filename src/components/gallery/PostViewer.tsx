@@ -1,6 +1,6 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { useSearchStore, useAuthStore } from '@/stores/appStore';
+import { useSearchStore, useAuthStore, useUserInteractionsStore } from '@/stores/appStore';
 import { Dialog, DialogContent, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { nativeVideoPlayer } from '@/services/nativeVideoPlayer';
 import { useNavigate } from 'react-router-dom';
 import { CommentsSheet } from './CommentsSheet';
+import { FilterSheet } from './FilterSheet';
 
 interface PostViewerProps {
   post: E621Post | null;
@@ -67,20 +68,23 @@ export function PostViewer({
   const [isFavoriting, setIsFavoriting] = useState(false);
   const [localPost, setLocalPost] = useState<E621Post | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
-  // Track user's current vote: 1 = liked, -1 = disliked, 0 = no vote
-  const [userVote, setUserVote] = useState<1 | -1 | 0>(0);
+  const [showFiltersSheet, setShowFiltersSheet] = useState(false);
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   
   const { currentTags, setCurrentTags } = useSearchStore();
   const { isGuest } = useAuthStore();
+  const { getUserVote, setUserVote, isUserFavorite, setUserFavorite } = useUserInteractionsStore();
+
+  // Get persisted vote and favorite state for current post
+  const userVote = post ? getUserVote(post.id) : 0;
+  const userFavorited = post ? isUserFavorite(post.id) : false;
 
   // Sync local post with prop and fetch fresh stats
   useEffect(() => {
     if (post && isOpen) {
       setLocalPost(post);
-      setUserVote(0); // Reset vote state when post changes
       
       // Fetch fresh post data from API
       const fetchFreshStats = async () => {
@@ -88,6 +92,10 @@ export function PostViewer({
         try {
           const freshPost = await e621Api.getPost(post.id);
           setLocalPost(freshPost);
+          // Update favorite state from API if authenticated
+          if (freshPost.is_favorited) {
+            setUserFavorite(post.id, true);
+          }
         } catch (error) {
           console.error('Error fetching fresh post stats:', error);
         } finally {
@@ -97,7 +105,7 @@ export function PostViewer({
       
       fetchFreshStats();
     }
-  }, [post?.id, isOpen]);
+  }, [post?.id, isOpen, setUserFavorite]);
 
   // Reset state when post changes
   useEffect(() => {
@@ -144,7 +152,7 @@ export function PostViewer({
         ...prev,
         score: { up: result.up, down: result.down, total: result.score }
       } : null);
-      setUserVote(newScore as 1 | -1 | 0);
+      setUserVote(localPost.id, newScore as 1 | -1 | 0);
       toast.success(newScore === 1 ? 'Like aggiunto!' : 'Like rimosso');
     } catch (error) {
       toast.error('Errore nel mettere like');
@@ -169,7 +177,7 @@ export function PostViewer({
         ...prev,
         score: { up: result.up, down: result.down, total: result.score }
       } : null);
-      setUserVote(newScore as 1 | -1 | 0);
+      setUserVote(localPost.id, newScore as 1 | -1 | 0);
       toast.success(newScore === -1 ? 'Dislike aggiunto!' : 'Dislike rimosso');
     } catch (error) {
       toast.error('Errore nel mettere dislike');
@@ -187,13 +195,15 @@ export function PostViewer({
     
     setIsFavoriting(true);
     try {
-      if (localPost.is_favorited) {
+      const isFav = userFavorited || localPost.is_favorited;
+      if (isFav) {
         await e621Api.removeFavorite(localPost.id);
         setLocalPost(prev => prev ? {
           ...prev,
           is_favorited: false,
           fav_count: prev.fav_count - 1
         } : null);
+        setUserFavorite(localPost.id, false);
         toast.success('Rimosso dai preferiti');
       } else {
         await e621Api.addFavorite(localPost.id);
@@ -202,6 +212,7 @@ export function PostViewer({
           is_favorited: true,
           fav_count: prev.fav_count + 1
         } : null);
+        setUserFavorite(localPost.id, true);
         toast.success('Aggiunto ai preferiti!');
       }
     } catch (error) {
@@ -250,18 +261,23 @@ export function PostViewer({
     onClose(shouldTriggerSearch);
   };
 
+
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    // Swipe DOWN = open info (positive Y offset)
-    if (info.offset.y > 50 && !mobileInfoExpanded) {
+    // Swipe UP = open info (negative Y offset - finger moves up)
+    if (info.offset.y < -50 && !mobileInfoExpanded) {
       setMobileInfoExpanded(true);
     }
-    // Swipe UP = if info is open, close it. If info is closed, close the post viewer
-    if (info.offset.y < -50) {
+    // Swipe DOWN = if info is open, close it. If info is closed, close the post viewer
+    if (info.offset.y > 50) {
       if (mobileInfoExpanded) {
         setMobileInfoExpanded(false);
       } else {
         handleClose();
       }
+    }
+    // Swipe LEFT = open filters (negative X offset)
+    if (info.offset.x < -80 && Math.abs(info.offset.y) < 50) {
+      setShowFiltersSheet(true);
     }
   };
 
@@ -509,7 +525,7 @@ export function PostViewer({
                     {isFavoriting ? (
                       <Loader2 className="w-5 h-5 animate-spin" />
                     ) : (
-                      <Star className={cn("w-5 h-5", localPost.is_favorited && "fill-primary text-primary")} />
+                      <Star className={cn("w-5 h-5", (userFavorited || localPost.is_favorited) && "fill-primary text-primary")} />
                     )}
                     <span className="text-xs">{localPost.fav_count}</span>
                   </button>
@@ -675,6 +691,9 @@ export function PostViewer({
           isOpen={showComments}
           onClose={() => setShowComments(false)}
         />
+
+        {/* Filters Sheet - triggered by horizontal swipe */}
+        <FilterSheet isOpen={showFiltersSheet} onOpenChange={setShowFiltersSheet} />
       </>
     );
   }

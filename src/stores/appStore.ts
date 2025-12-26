@@ -65,6 +65,20 @@ interface SearchState {
   clearCache: () => void;
 }
 
+// Store for tracking user's interactions with posts (votes, favorites)
+interface UserInteractionsState {
+  // postId -> vote (1 = liked, -1 = disliked, 0 = no vote)
+  userVotes: Record<number, 1 | -1 | 0>;
+  // Set of post IDs that user has favorited (tracked locally for UI updates)
+  userFavorites: Set<number>;
+  
+  setUserVote: (postId: number, vote: 1 | -1 | 0) => void;
+  getUserVote: (postId: number) => 1 | -1 | 0;
+  setUserFavorite: (postId: number, isFavorite: boolean) => void;
+  isUserFavorite: (postId: number) => boolean;
+  clearInteractions: () => void;
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -284,6 +298,63 @@ export const useSearchStore = create<SearchState>()(
         searchHistory: state.searchHistory,
         cachedPosts: state.cachedPosts,
       }),
+    }
+  )
+);
+
+// User interactions store - persisted to remember votes across sessions
+export const useUserInteractionsStore = create<UserInteractionsState>()(
+  persist(
+    (set, get) => ({
+      userVotes: {},
+      userFavorites: new Set<number>(),
+
+      setUserVote: (postId, vote) => set((state) => ({
+        userVotes: { ...state.userVotes, [postId]: vote }
+      })),
+
+      getUserVote: (postId) => get().userVotes[postId] || 0,
+
+      setUserFavorite: (postId, isFavorite) => set((state) => {
+        const newFavorites = new Set(state.userFavorites);
+        if (isFavorite) {
+          newFavorites.add(postId);
+        } else {
+          newFavorites.delete(postId);
+        }
+        return { userFavorites: newFavorites };
+      }),
+
+      isUserFavorite: (postId) => get().userFavorites.has(postId),
+
+      clearInteractions: () => set({ userVotes: {}, userFavorites: new Set<number>() }),
+    }),
+    {
+      name: 'e6-interactions',
+      storage: {
+        getItem: (name) => {
+          const str = localStorage.getItem(name);
+          if (!str) return null;
+          const parsed = JSON.parse(str);
+          // Convert userFavorites array back to Set
+          if (parsed.state?.userFavorites) {
+            parsed.state.userFavorites = new Set(parsed.state.userFavorites);
+          }
+          return parsed;
+        },
+        setItem: (name, value) => {
+          // Convert Set to array for JSON serialization
+          const toStore = {
+            ...value,
+            state: {
+              ...value.state,
+              userFavorites: Array.from(value.state.userFavorites || []),
+            },
+          };
+          localStorage.setItem(name, JSON.stringify(toStore));
+        },
+        removeItem: (name) => localStorage.removeItem(name),
+      },
     }
   )
 );

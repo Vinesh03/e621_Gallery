@@ -1,11 +1,11 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { Star, Download, ExternalLink, Loader2, ThumbsUp, ThumbsDown, LayoutGrid } from 'lucide-react';
+import { Star, Download, ExternalLink, Loader2, ThumbsUp, ThumbsDown, LayoutGrid, Play } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useAuthStore } from '@/stores/appStore';
+import { useAuthStore, useSettingsStore } from '@/stores/appStore';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -38,11 +38,14 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   const [localPosts, setLocalPosts] = useState<E621Post[]>(posts);
   // Track user votes per post: postId -> vote (1, -1, or 0)
   const [userVotes, setUserVotes] = useState<Map<number, 1 | -1 | 0>>(new Map());
+  // Track user favorites per post
+  const [userFavorites, setUserFavorites] = useState<Set<number>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
   const preloadedUrls = useRef<Set<string>>(new Set());
   
   const { isGuest, logout } = useAuthStore();
+  const { viewMode, setViewMode } = useSettingsStore();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -75,7 +78,7 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
       } else if (e.key === 'ArrowDown' || e.key === 's') {
         goToNext();
       } else if (e.key === 'Escape') {
-        onExit();
+        handleExitToGallery();
       }
     };
 
@@ -190,14 +193,21 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     
     setIsFavoriting(true);
     try {
-      if (currentPost.is_favorited) {
+      const isFav = userFavorites.has(currentPost.id) || currentPost.is_favorited;
+      if (isFav) {
         await e621Api.removeFavorite(currentPost.id);
+        setUserFavorites(prev => {
+          const next = new Set(prev);
+          next.delete(currentPost.id);
+          return next;
+        });
         setLocalPosts(prev => prev.map((p, i) => 
           i === currentIndex ? { ...p, is_favorited: false, fav_count: p.fav_count - 1 } : p
         ));
         toast.success('Rimosso dai preferiti');
       } else {
         await e621Api.addFavorite(currentPost.id);
+        setUserFavorites(prev => new Set(prev).add(currentPost.id));
         setLocalPosts(prev => prev.map((p, i) => 
           i === currentIndex ? { ...p, is_favorited: true, fav_count: p.fav_count + 1 } : p
         ));
@@ -210,6 +220,28 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
       setIsFavoriting(false);
     }
   };
+
+  // Handle exit with browser history support
+  const handleExitToGallery = () => {
+    setViewMode('gallery');
+    onExit();
+  };
+
+  // Handle browser back button
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      handleExitToGallery();
+    };
+
+    // Push a new state when entering shorts
+    window.history.pushState({ shorts: true }, '');
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   const handleLoginRedirect = () => {
     logout();
@@ -253,10 +285,20 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     }
   };
 
+  const currentIsFavorited = currentPost ? (userFavorites.has(currentPost.id) || currentPost.is_favorited) : false;
+
   // Show loading state instead of "no videos" when initially loading
   if (localPosts.length === 0 && isLoading) {
     return (
       <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
+        {/* Gallery button even during loading */}
+        <button
+          onClick={handleExitToGallery}
+          className="absolute top-4 left-4 z-50 px-4 py-2 rounded-full bg-background/80 hover:bg-background transition-colors flex items-center gap-2"
+        >
+          <LayoutGrid className="w-5 h-5" />
+          <span className="text-sm font-medium">Galleria</span>
+        </button>
         <div className="text-center flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Caricamento video...</p>
@@ -268,9 +310,17 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   if (localPosts.length === 0) {
     return (
       <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
+        {/* Gallery button */}
+        <button
+          onClick={handleExitToGallery}
+          className="absolute top-4 left-4 z-50 px-4 py-2 rounded-full bg-background/80 hover:bg-background transition-colors flex items-center gap-2"
+        >
+          <LayoutGrid className="w-5 h-5" />
+          <span className="text-sm font-medium">Galleria</span>
+        </button>
         <div className="text-center">
           <p className="text-muted-foreground">Nessun video trovato</p>
-          <button onClick={onExit} className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg">
+          <button onClick={handleExitToGallery} className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg">
             Torna alla galleria
           </button>
         </div>
@@ -288,14 +338,26 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Gallery button - nicer than X */}
-        <button
-          onClick={onExit}
-          className="absolute top-4 left-4 z-50 px-4 py-2 rounded-full bg-background/80 hover:bg-background transition-colors flex items-center gap-2"
-        >
-          <LayoutGrid className="w-5 h-5" />
-          <span className="text-sm font-medium">Galleria</span>
-        </button>
+        {/* View mode toggle - same as GalleryPage */}
+        <div className="absolute top-4 left-4 right-4 z-50 flex items-center gap-2">
+          <button
+            onClick={handleExitToGallery}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
+            )}
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span className="font-medium text-sm">Galleria</span>
+          </button>
+          <button
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-primary text-primary-foreground"
+            )}
+          >
+            <Play className="w-4 h-4" />
+            <span className="font-medium text-sm">Shorts</span>
+          </button>
+        </div>
 
         {/* Navigation buttons - only show on desktop */}
         {!isMobile && (
@@ -357,7 +419,7 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
             {isFavoriting ? (
               <Loader2 className="w-6 h-6 animate-spin" />
             ) : (
-              <Star className={cn("w-6 h-6", currentPost?.is_favorited && "fill-primary text-primary")} />
+              <Star className={cn("w-6 h-6", currentIsFavorited && "fill-primary text-primary")} />
             )}
             <span className="text-xs mt-1">{currentPost?.fav_count || 0}</span>
           </button>
