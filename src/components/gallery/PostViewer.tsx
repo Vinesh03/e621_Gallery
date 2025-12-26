@@ -55,6 +55,7 @@ export function PostViewer({
   const [showAllTags, setShowAllTags] = useState(false);
   const [pendingTagChanges, setPendingTagChanges] = useState<Set<string>>(new Set());
   const [mobileInfoExpanded, setMobileInfoExpanded] = useState(false);
+  const [inAppVideoUrl, setInAppVideoUrl] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -65,6 +66,7 @@ export function PostViewer({
     setShowAllTags(false);
     setPendingTagChanges(new Set());
     setMobileInfoExpanded(false);
+    setInAppVideoUrl(null);
   }, [post?.id]);
 
   if (!post) return null;
@@ -259,51 +261,80 @@ export function PostViewer({
 
                   {isVideo ? (
                     <div className="relative flex items-center justify-center w-full h-full">
-                      {/* Video thumbnail/preview */}
-                      <div 
-                        className="relative cursor-pointer group"
-                        onClick={async () => {
-                          const videoUrl = e621Api.getVideoPlaybackUrl(post) || e621Api.getDownloadUrl(post);
-                          if (!videoUrl) return;
+                      {inAppVideoUrl ? (
+                        <div className="relative w-full h-full flex items-center justify-center">
+                          <video
+                            key={inAppVideoUrl}
+                            src={inAppVideoUrl}
+                            controls
+                            autoPlay
+                            playsInline
+                            preload="metadata"
+                            className="max-w-full max-h-full object-contain"
+                            onError={() => {
+                              toast.error('Video non riproducibile');
+                              setInAppVideoUrl(null);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            aria-label="Chiudi video"
+                            onClick={() => setInAppVideoUrl(null)}
+                            className="absolute top-2 right-2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          className="relative cursor-pointer group"
+                          onClick={async () => {
+                            const videoUrl = e621Api.getVideoPlaybackUrl(post) || e621Api.getDownloadUrl(post);
+                            if (!videoUrl) return;
 
-                          // Debug: mostra quale URL viene scelto
-                          const urlType = videoUrl.includes('_720p') ? '720p' 
-                            : videoUrl.includes('_480p') ? '480p'
-                            : videoUrl.includes('_alt.mp4') ? 'MP4'
-                            : videoUrl.endsWith('.webm') ? 'WebM (originale)'
-                            : 'Sconosciuto';
-                          console.log(`Video URL (${urlType}):`, videoUrl);
+                            const urlType = videoUrl.includes('_720p')
+                              ? '720p'
+                              : videoUrl.includes('_480p')
+                                ? '480p'
+                                : videoUrl.includes('_alt.mp4')
+                                  ? 'MP4'
+                                  : videoUrl.endsWith('.webm')
+                                    ? 'WebM (originale)'
+                                    : 'Sconosciuto';
 
-                          try {
-                            const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
-                            if (!success) {
-                              toast.info(`Video aperto nel browser (${urlType})`);
+                            try {
+                              const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
+                              if (!success) {
+                                setInAppVideoUrl(videoUrl);
+                                toast.info(`Riproduzione integrata (${urlType})`);
+                              }
+                            } catch (err) {
+                              console.error(err);
+                              setInAppVideoUrl(videoUrl);
+                              toast.error(`Riproduzione integrata (${urlType})`, {
+                                description: err instanceof Error ? err.message : String(err),
+                              });
                             }
-                          } catch (err) {
-                            console.error(err);
-                            toast.error(`Errore player video (${urlType})`, {
-                              description: err instanceof Error ? err.message : String(err),
-                            });
-                          }
-                        }}
-                      >
-                        {/* Preview image or poster */}
-                        <img
-                          src={post.preview.url || post.sample?.url || ''}
-                          alt={`Video preview ${post.id}`}
-                          className="max-w-full max-h-full object-contain"
-                        />
-                        {/* Play button overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/30 group-hover:bg-background/50 transition-colors">
-                          <div className="w-16 h-16 rounded-full bg-primary/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                            <Play className="w-8 h-8 text-primary-foreground ml-1" fill="currentColor" />
+                          }}
+                        >
+                          {/* Preview image or poster */}
+                          <img
+                            src={post.preview.url || post.sample?.url || ''}
+                            alt={`Video preview ${post.id}`}
+                            className="max-w-full max-h-full object-contain"
+                          />
+                          {/* Play button overlay */}
+                          <div className="absolute inset-0 flex items-center justify-center bg-background/30 group-hover:bg-background/50 transition-colors">
+                            <div className="w-16 h-16 rounded-full bg-primary/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                              <Play className="w-8 h-8 text-primary-foreground ml-1" fill="currentColor" />
+                            </div>
+                          </div>
+                          {/* Video badge */}
+                          <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-background/80 text-xs font-medium">
+                            {post.file.ext?.toUpperCase()} • {Math.round((post.file.size || 0) / 1024 / 1024 * 10) / 10}MB
                           </div>
                         </div>
-                        {/* Video badge */}
-                        <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-background/80 text-xs font-medium">
-                          {post.file.ext?.toUpperCase()} • {Math.round((post.file.size || 0) / 1024 / 1024 * 10) / 10}MB
-                        </div>
-                      </div>
+                      )}
                     </div>
                   ) : (
                     <img
@@ -543,50 +574,79 @@ export function PostViewer({
                 >
                   {isVideo ? (
                     <div className="flex flex-col items-center gap-4">
-                      {/* Video thumbnail with play button */}
-                      <div 
-                        className="relative cursor-pointer group"
-                        onClick={async () => {
-                          const videoUrl = e621Api.getVideoPlaybackUrl(post) || e621Api.getDownloadUrl(post);
-                          if (!videoUrl) return;
+                      {inAppVideoUrl ? (
+                        <div className="relative w-full flex items-center justify-center">
+                          <video
+                            key={inAppVideoUrl}
+                            src={inAppVideoUrl}
+                            controls
+                            autoPlay
+                            playsInline
+                            preload="metadata"
+                            className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                            onError={() => {
+                              toast.error('Video non riproducibile');
+                              setInAppVideoUrl(null);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            aria-label="Chiudi video"
+                            onClick={() => setInAppVideoUrl(null)}
+                            className="absolute top-2 right-2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors"
+                          >
+                            <X className="w-5 h-5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          className="relative cursor-pointer group"
+                          onClick={async () => {
+                            const videoUrl = e621Api.getVideoPlaybackUrl(post) || e621Api.getDownloadUrl(post);
+                            if (!videoUrl) return;
 
-                          // Debug: mostra quale URL viene scelto
-                          const urlType = videoUrl.includes('_720p') ? '720p' 
-                            : videoUrl.includes('_480p') ? '480p'
-                            : videoUrl.includes('_alt.mp4') ? 'MP4'
-                            : videoUrl.endsWith('.webm') ? 'WebM (originale)'
-                            : 'Sconosciuto';
-                          console.log(`Video URL (${urlType}):`, videoUrl);
+                            const urlType = videoUrl.includes('_720p')
+                              ? '720p'
+                              : videoUrl.includes('_480p')
+                                ? '480p'
+                                : videoUrl.includes('_alt.mp4')
+                                  ? 'MP4'
+                                  : videoUrl.endsWith('.webm')
+                                    ? 'WebM (originale)'
+                                    : 'Sconosciuto';
 
-                          try {
-                            const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
-                            if (!success) {
-                              toast.info(`Video aperto nel browser (${urlType})`);
+                            try {
+                              const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${post.id}`);
+                              if (!success) {
+                                setInAppVideoUrl(videoUrl);
+                                toast.info(`Riproduzione integrata (${urlType})`);
+                              }
+                            } catch (err) {
+                              console.error(err);
+                              setInAppVideoUrl(videoUrl);
+                              toast.error(`Riproduzione integrata (${urlType})`, {
+                                description: err instanceof Error ? err.message : String(err),
+                              });
                             }
-                          } catch (err) {
-                            console.error(err);
-                            toast.error(`Errore player video (${urlType})`, {
-                              description: err instanceof Error ? err.message : String(err),
-                            });
-                          }
-                        }}
-                      >
-                        <img
-                          src={post.sample?.url || post.preview.url || ''}
-                          alt={`Video preview ${post.id}`}
-                          className="max-w-full max-h-[60vh] object-contain rounded-lg"
-                        />
-                        {/* Play overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/30 group-hover:bg-background/50 transition-colors rounded-lg">
-                          <div className="w-20 h-20 rounded-full bg-primary/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                            <Play className="w-10 h-10 text-primary-foreground ml-1" fill="currentColor" />
+                          }}
+                        >
+                          <img
+                            src={post.sample?.url || post.preview.url || ''}
+                            alt={`Video preview ${post.id}`}
+                            className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                          />
+                          {/* Play overlay */}
+                          <div className="absolute inset-0 flex items-center justify-center bg-background/30 group-hover:bg-background/50 transition-colors rounded-lg">
+                            <div className="w-20 h-20 rounded-full bg-primary/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                              <Play className="w-10 h-10 text-primary-foreground ml-1" fill="currentColor" />
+                            </div>
+                          </div>
+                          {/* Video info badge */}
+                          <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded bg-background/80 text-sm font-medium">
+                            {post.file.ext?.toUpperCase()} • {Math.round((post.file.size || 0) / 1024 / 1024 * 10) / 10}MB
                           </div>
                         </div>
-                        {/* Video info badge */}
-                        <div className="absolute bottom-3 right-3 px-3 py-1.5 rounded bg-background/80 text-sm font-medium">
-                          {post.file.ext?.toUpperCase()} • {Math.round((post.file.size || 0) / 1024 / 1024 * 10) / 10}MB
-                        </div>
-                      </div>
+                      )}
                       <button
                         onClick={handleOpenOnE621}
                         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors"
