@@ -1,12 +1,13 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { ChevronUp, ChevronDown, Star, Download, X, ExternalLink, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Star, Download, ExternalLink, Loader2, ThumbsUp, ThumbsDown, LayoutGrid } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/appStore';
 import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -32,13 +33,18 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   const [direction, setDirection] = useState<'up' | 'down'>('down');
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [isFavoriting, setIsFavoriting] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
+  const [isDisliking, setIsDisliking] = useState(false);
   const [localPosts, setLocalPosts] = useState<E621Post[]>(posts);
+  // Track user votes per post: postId -> vote (1, -1, or 0)
+  const [userVotes, setUserVotes] = useState<Map<number, 1 | -1 | 0>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
   const preloadedUrls = useRef<Set<string>>(new Set());
   
   const { isGuest, logout } = useAuthStore();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   // Sync local posts with prop
   useEffect(() => {
@@ -119,6 +125,60 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
       }
     });
   }, [currentIndex]);
+
+  const handleLike = async () => {
+    if (isGuest) {
+      setShowLoginDialog(true);
+      return;
+    }
+    
+    if (!currentPost) return;
+    
+    setIsLiking(true);
+    try {
+      const currentVote = userVotes.get(currentPost.id) || 0;
+      const newVote = currentVote === 1 ? 0 : 1;
+      const result = await e621Api.votePost(currentPost.id, newVote as 1 | -1 | 0);
+      
+      setLocalPosts(prev => prev.map((p, i) => 
+        i === currentIndex ? { ...p, score: { up: result.up, down: result.down, total: result.score } } : p
+      ));
+      setUserVotes(prev => new Map(prev).set(currentPost.id, newVote as 1 | -1 | 0));
+      toast.success(newVote === 1 ? 'Like aggiunto!' : 'Like rimosso');
+    } catch (error) {
+      toast.error('Errore nel mettere like');
+      console.error(error);
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  const handleDislike = async () => {
+    if (isGuest) {
+      setShowLoginDialog(true);
+      return;
+    }
+    
+    if (!currentPost) return;
+    
+    setIsDisliking(true);
+    try {
+      const currentVote = userVotes.get(currentPost.id) || 0;
+      const newVote = currentVote === -1 ? 0 : -1;
+      const result = await e621Api.votePost(currentPost.id, newVote as 1 | -1 | 0);
+      
+      setLocalPosts(prev => prev.map((p, i) => 
+        i === currentIndex ? { ...p, score: { up: result.up, down: result.down, total: result.score } } : p
+      ));
+      setUserVotes(prev => new Map(prev).set(currentPost.id, newVote as 1 | -1 | 0));
+      toast.success(newVote === -1 ? 'Dislike aggiunto!' : 'Dislike rimosso');
+    } catch (error) {
+      toast.error('Errore nel mettere dislike');
+      console.error(error);
+    } finally {
+      setIsDisliking(false);
+    }
+  };
 
   const handleFavorite = async () => {
     if (isGuest) {
@@ -218,6 +278,8 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     );
   }
 
+  const currentVote = currentPost ? (userVotes.get(currentPost.id) || 0) : 0;
+
   return (
     <>
       <div 
@@ -226,40 +288,67 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Exit button */}
+        {/* Gallery button - nicer than X */}
         <button
           onClick={onExit}
-          className="absolute top-4 left-4 z-50 p-2 rounded-full bg-background/80 hover:bg-background transition-colors"
+          className="absolute top-4 left-4 z-50 px-4 py-2 rounded-full bg-background/80 hover:bg-background transition-colors flex items-center gap-2"
         >
-          <X className="w-6 h-6" />
+          <LayoutGrid className="w-5 h-5" />
+          <span className="text-sm font-medium">Galleria</span>
         </button>
 
-        {/* Navigation buttons */}
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2">
-          <button
-            onClick={goToPrevious}
-            disabled={currentIndex === 0}
-            className={cn(
-              "p-3 rounded-full bg-background/80 hover:bg-background transition-colors",
-              currentIndex === 0 && "opacity-50 cursor-not-allowed"
-            )}
-          >
-            <ChevronUp className="w-6 h-6" />
-          </button>
-          <button
-            onClick={goToNext}
-            disabled={currentIndex === localPosts.length - 1 && !hasMore}
-            className={cn(
-              "p-3 rounded-full bg-background/80 hover:bg-background transition-colors",
-              currentIndex === localPosts.length - 1 && !hasMore && "opacity-50 cursor-not-allowed"
-            )}
-          >
-            <ChevronDown className="w-6 h-6" />
-          </button>
-        </div>
+        {/* Navigation buttons - only show on desktop */}
+        {!isMobile && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2">
+            <button
+              onClick={goToPrevious}
+              disabled={currentIndex === 0}
+              className={cn(
+                "p-3 rounded-full bg-background/80 hover:bg-background transition-colors text-sm font-medium",
+                currentIndex === 0 && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              ↑ Precedente
+            </button>
+            <button
+              onClick={goToNext}
+              disabled={currentIndex === localPosts.length - 1 && !hasMore}
+              className={cn(
+                "p-3 rounded-full bg-background/80 hover:bg-background transition-colors text-sm font-medium",
+                currentIndex === localPosts.length - 1 && !hasMore && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              ↓ Successivo
+            </button>
+          </div>
+        )}
 
         {/* Action buttons */}
         <div className="absolute right-4 bottom-20 z-40 flex flex-col gap-4">
+          <button
+            onClick={handleLike}
+            disabled={isLiking}
+            className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors flex flex-col items-center"
+          >
+            {isLiking ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <ThumbsUp className={cn("w-6 h-6", currentVote === 1 && "fill-primary text-primary")} />
+            )}
+            <span className="text-xs mt-1">{currentPost?.score.up || 0}</span>
+          </button>
+          <button
+            onClick={handleDislike}
+            disabled={isDisliking}
+            className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors flex flex-col items-center"
+          >
+            {isDisliking ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <ThumbsDown className={cn("w-6 h-6", currentVote === -1 && "fill-destructive text-destructive")} />
+            )}
+            <span className="text-xs mt-1">{currentPost?.score.down || 0}</span>
+          </button>
           <button
             onClick={handleFavorite}
             disabled={isFavoriting}
@@ -338,11 +427,11 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
                 onClick={() => setShowLoginDialog(false)}
                 className="p-1 rounded-full hover:bg-secondary transition-colors"
               >
-                <X className="w-4 h-4" />
+                ✕
               </button>
             </div>
             <AlertDialogDescription>
-              Per aggiungere ai preferiti devi accedere con il tuo account e621.
+              Per utilizzare questa funzione devi accedere con il tuo account e621.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex justify-end gap-2 mt-4">
