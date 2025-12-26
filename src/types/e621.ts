@@ -143,3 +143,18 @@ export interface E621Tag {
   post_count: number;
   category: number;
 }
+
+export interface E621Comment {
+  id: number;
+  post_id: number;
+  creator_id: number;
+  body: string;
+  score: number;
+  created_at: string;
+  updated_at: string;
+  updater_id: number | null;
+  do_not_bump_post: boolean;
+  is_hidden: boolean;
+  is_sticky: boolean;
+  creator_name: string;
+}

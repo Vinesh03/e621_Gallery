@@ -1,4 +1,4 @@
-import { E621Post, E621PostsResponse, E621User, SearchParams, AuthCredentials, E621Tag, MediaFilter } from '@/types/e621';
+import { E621Post, E621PostsResponse, E621User, SearchParams, AuthCredentials, E621Tag, MediaFilter, E621Comment } from '@/types/e621';
 
 const BASE_URL = 'https://e621.net';
 const USER_AGENT = 'E6Gallery/1.0 (Lovable App)';
@@ -234,6 +234,47 @@ class E621Api {
     if (!response.ok && response.status !== 204) {
       throw new Error(`API Error: ${response.status}`);
     }
+  }
+
+  async votePost(postId: number, score: 1 | -1 | 0): Promise<{ score: number; up: number; down: number }> {
+    if (!this.credentials) {
+      throw new Error('Not authenticated');
+    }
+
+    const url = this.buildUrl(`/posts/${postId}/votes.json`);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...this.getHeaders(),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `score=${score}&no_unvote=false`,
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  async getComments(postId: number): Promise<E621Comment[]> {
+    const url = this.buildUrl('/comments.json', {
+      'search[post_id]': postId,
+      limit: 50,
+    });
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    return response.json();
   }
 
   getDownloadUrl(post: E621Post): string | null {
