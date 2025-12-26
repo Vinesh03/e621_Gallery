@@ -24,14 +24,9 @@ type CapacitorVideoPlayerPlugin = {
   stopAllPlayers(): Promise<void>;
 };
 
-type BrowserPlugin = {
-  open(options: { url: string }): Promise<void>;
-};
-
 // Avoid build-time dependency on the npm wrappers by registering plugins by name.
 // Native side must still be present on device (via `npx cap sync`).
 const VideoPlayer = registerPlugin<CapacitorVideoPlayerPlugin>('CapacitorVideoPlayer');
-const Browser = registerPlugin<BrowserPlugin>('Browser');
 
 export const nativeVideoPlayer = {
   isNative: () => Capacitor.isNativePlatform(),
@@ -74,15 +69,7 @@ export const nativeVideoPlayer = {
       return true;
     } catch (error) {
       console.error('Native video player error:', error);
-
-      // Fallback: open externally
-      try {
-        await Browser.open({ url });
-      } catch (e) {
-        console.error('Browser fallback failed:', e);
-        window.open(url, '_blank');
-      }
-
+      // Non aprire automaticamente il browser: il chiamante gestisce il fallback in-app
       return false;
     }
   },
