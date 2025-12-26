@@ -3,7 +3,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
-import { Capacitor } from "@capacitor/core";
 import { useAuthStore, useSettingsStore } from "@/stores/appStore";
 import LoginPage from "@/pages/LoginPage";
 import GalleryPage from "@/pages/GalleryPage";
@@ -30,22 +29,6 @@ function AppContent() {
     }
   }, [darkMode]);
 
-  // Native (in-app): avoid content under the OS status bar
-  useEffect(() => {
-    if (!Capacitor.isNativePlatform()) return;
-
-    (async () => {
-      try {
-        // @vite-ignore prevents Vite from analyzing this import during build
-        const { StatusBar, Style } = await import(/* @vite-ignore */ '@capacitor/status-bar');
-        await StatusBar.setOverlaysWebView({ overlay: false });
-        // Dark mode needs LIGHT icons; light mode needs DARK icons
-        await StatusBar.setStyle({ style: darkMode ? Style.Light : Style.Dark });
-      } catch {
-        // no-op – plugin not available on web
-      }
-    })();
-  }, [darkMode]);
 
   return (
     <Routes>
