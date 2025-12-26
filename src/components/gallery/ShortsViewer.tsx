@@ -1,6 +1,6 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { ChevronUp, ChevronDown, Heart, Download, X, ExternalLink, Loader2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, Star, Download, X, ExternalLink, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -24,17 +24,28 @@ interface ShortsViewerProps {
   onExit: () => void;
 }
 
+// Number of videos to preload ahead
+const PRELOAD_COUNT = 3;
+
 export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: ShortsViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState<'up' | 'down'>('down');
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
+  const [localPosts, setLocalPosts] = useState<E621Post[]>(posts);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
+  const preloadedUrls = useRef<Set<string>>(new Set());
   
   const { isGuest, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  const currentPost = posts[currentIndex];
+  // Sync local posts with prop
+  useEffect(() => {
+    setLocalPosts(posts);
+  }, [posts]);
+
+  const currentPost = localPosts[currentIndex];
 
   const goToPrevious = useCallback(() => {
     if (currentIndex > 0) {
@@ -44,11 +55,11 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   }, [currentIndex]);
 
   const goToNext = useCallback(() => {
-    if (currentIndex < posts.length - 1) {
+    if (currentIndex < localPosts.length - 1) {
       setDirection('down');
       setCurrentIndex(currentIndex + 1);
     }
-  }, [currentIndex, posts.length]);
+  }, [currentIndex, localPosts.length]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -68,10 +79,34 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
 
   // Load more when near the end
   useEffect(() => {
-    if (currentIndex >= posts.length - 3 && hasMore && !isLoading) {
+    if (currentIndex >= localPosts.length - 3 && hasMore && !isLoading) {
       onLoadMore();
     }
-  }, [currentIndex, posts.length, hasMore, isLoading, onLoadMore]);
+  }, [currentIndex, localPosts.length, hasMore, isLoading, onLoadMore]);
+
+  // Preload upcoming videos
+  useEffect(() => {
+    const preloadVideos = () => {
+      for (let i = 1; i <= PRELOAD_COUNT; i++) {
+        const nextIndex = currentIndex + i;
+        if (nextIndex < localPosts.length) {
+          const nextPost = localPosts[nextIndex];
+          const videoUrl = e621Api.getVideoPlaybackUrl(nextPost) || e621Api.getDownloadUrl(nextPost);
+          
+          if (videoUrl && !preloadedUrls.current.has(videoUrl)) {
+            // Create a hidden video element to preload
+            const preloadVideo = document.createElement('video');
+            preloadVideo.preload = 'metadata';
+            preloadVideo.src = videoUrl;
+            preloadVideo.muted = true;
+            preloadedUrls.current.add(videoUrl);
+          }
+        }
+      }
+    };
+
+    preloadVideos();
+  }, [currentIndex, localPosts]);
 
   // Pause videos that are not visible
   useEffect(() => {
@@ -85,13 +120,35 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     });
   }, [currentIndex]);
 
-  const handleLike = () => {
+  const handleFavorite = async () => {
     if (isGuest) {
       setShowLoginDialog(true);
       return;
     }
-    // TODO: implement like functionality for logged in users
-    toast.info('Funzionalità like in arrivo');
+    
+    if (!currentPost) return;
+    
+    setIsFavoriting(true);
+    try {
+      if (currentPost.is_favorited) {
+        await e621Api.removeFavorite(currentPost.id);
+        setLocalPosts(prev => prev.map((p, i) => 
+          i === currentIndex ? { ...p, is_favorited: false, fav_count: p.fav_count - 1 } : p
+        ));
+        toast.success('Rimosso dai preferiti');
+      } else {
+        await e621Api.addFavorite(currentPost.id);
+        setLocalPosts(prev => prev.map((p, i) => 
+          i === currentIndex ? { ...p, is_favorited: true, fav_count: p.fav_count + 1 } : p
+        ));
+        toast.success('Aggiunto ai preferiti!');
+      }
+    } catch (error) {
+      toast.error('Errore nella gestione preferiti');
+      console.error(error);
+    } finally {
+      setIsFavoriting(false);
+    }
   };
 
   const handleLoginRedirect = () => {
@@ -137,7 +194,7 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   };
 
   // Show loading state instead of "no videos" when initially loading
-  if (posts.length === 0 && isLoading) {
+  if (localPosts.length === 0 && isLoading) {
     return (
       <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
         <div className="text-center flex flex-col items-center gap-4">
@@ -148,7 +205,7 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     );
   }
 
-  if (posts.length === 0) {
+  if (localPosts.length === 0) {
     return (
       <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
         <div className="text-center">
@@ -191,10 +248,10 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           </button>
           <button
             onClick={goToNext}
-            disabled={currentIndex === posts.length - 1 && !hasMore}
+            disabled={currentIndex === localPosts.length - 1 && !hasMore}
             className={cn(
               "p-3 rounded-full bg-background/80 hover:bg-background transition-colors",
-              currentIndex === posts.length - 1 && !hasMore && "opacity-50 cursor-not-allowed"
+              currentIndex === localPosts.length - 1 && !hasMore && "opacity-50 cursor-not-allowed"
             )}
           >
             <ChevronDown className="w-6 h-6" />
@@ -204,10 +261,15 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         {/* Action buttons */}
         <div className="absolute right-4 bottom-20 z-40 flex flex-col gap-4">
           <button
-            onClick={handleLike}
+            onClick={handleFavorite}
+            disabled={isFavoriting}
             className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors flex flex-col items-center"
           >
-            <Heart className={cn("w-6 h-6", currentPost?.is_favorited && "fill-destructive text-destructive")} />
+            {isFavoriting ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <Star className={cn("w-6 h-6", currentPost?.is_favorited && "fill-primary text-primary")} />
+            )}
             <span className="text-xs mt-1">{currentPost?.fav_count || 0}</span>
           </button>
           <button
@@ -223,11 +285,6 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           >
             <Download className="w-6 h-6" />
           </button>
-        </div>
-
-        {/* Progress indicator */}
-        <div className="absolute top-4 right-1/2 translate-x-1/2 z-40 px-3 py-1 rounded-full bg-background/80 text-sm">
-          {currentIndex + 1} / {posts.length}
         </div>
 
         {/* Video container */}
@@ -285,7 +342,7 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
               </button>
             </div>
             <AlertDialogDescription>
-              Per mettere like ai post devi accedere con il tuo account e621.
+              Per aggiungere ai preferiti devi accedere con il tuo account e621.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex justify-end gap-2 mt-4">
