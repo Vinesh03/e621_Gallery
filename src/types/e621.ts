@@ -22,12 +22,39 @@ export interface E621Post {
     width: number;
     height: number;
     url: string | null;
-    alternates?: Record<string, {
-      type: string;
-      height: number;
-      width: number;
-      urls: (string | null)[];
-    }>;
+    // For videos e621 exposes alternate encodes (mp4, 480p, 720p, ...)
+    alternates?: {
+      has: boolean;
+      original?: {
+        fps?: number;
+        codec?: string;
+        size?: number;
+        width?: number;
+        height?: number;
+        url?: string | null;
+      };
+      variants?: {
+        mp4?: {
+          codec?: string;
+          fps?: number;
+          size?: number;
+          width?: number;
+          height?: number;
+          url?: string | null;
+        };
+      };
+      samples?: Record<
+        string,
+        {
+          fps?: number;
+          codec?: string;
+          size?: number;
+          width?: number;
+          height?: number;
+          url?: string | null;
+        }
+      >;
+    };
   };
   score: {
     up: number;

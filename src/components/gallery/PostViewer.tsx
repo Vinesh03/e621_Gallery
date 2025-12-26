@@ -263,7 +263,7 @@ export function PostViewer({
                       <div 
                         className="relative cursor-pointer group"
                         onClick={async () => {
-                          const videoUrl = e621Api.getDownloadUrl(post) || mediaUrl;
+                          const videoUrl = e621Api.getVideoPlaybackUrl(post) || e621Api.getDownloadUrl(post);
                           if (!videoUrl) return;
 
                           try {
@@ -539,7 +539,7 @@ export function PostViewer({
                       <div 
                         className="relative cursor-pointer group"
                         onClick={async () => {
-                          const videoUrl = e621Api.getDownloadUrl(post) || mediaUrl;
+                          const videoUrl = e621Api.getVideoPlaybackUrl(post) || e621Api.getDownloadUrl(post);
                           if (!videoUrl) return;
 
                           try {

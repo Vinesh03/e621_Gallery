@@ -240,12 +240,36 @@ class E621Api {
     return post.file.url;
   }
 
+  /**
+   * Best URL for rendering a preview (images) in the UI.
+   * For video posts this will typically be a JPG preview.
+   */
   getPreviewUrl(post: E621Post): string | null {
     return post.preview.url || post.sample.url || post.file.url;
   }
 
+  /**
+   * Best URL for rendering the main media (images).
+   * Note: for video posts, `sample.url` is a poster image, not the video.
+   */
   getSampleUrl(post: E621Post): string | null {
     return post.sample.url || post.file.url;
+  }
+
+  /**
+   * Best URL for actually playing a video (prefer MP4 transcodes for compatibility).
+   */
+  getVideoPlaybackUrl(post: E621Post): string | null {
+    const ext = (post.file.ext || '').toLowerCase();
+    if (ext !== 'webm' && ext !== 'mp4') return null;
+
+    // If e621 provides MP4 transcodes (most compatible), prefer them.
+    const alternates = post.sample.alternates;
+    const mp4_720 = alternates?.samples?.['720p']?.url;
+    const mp4_480 = alternates?.samples?.['480p']?.url;
+    const mp4_variant = alternates?.variants?.mp4?.url;
+
+    return mp4_720 || mp4_480 || mp4_variant || post.file.url;
   }
 }
 
