@@ -15,14 +15,4 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  build: {
-    rollupOptions: {
-      // Capacitor native plugins are resolved only at runtime on device
-      external: [
-        "@capacitor/status-bar",
-        "@capacitor/browser",
-        "capacitor-video-player",
-      ],
-    },
-  },
 }));
