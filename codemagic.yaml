@@ -1,0 +1,43 @@
+workflows:
+  ionic-capacitor-workflow:
+    name: Ionic Capacitor Android & iOS
+    max_build_duration: 60
+    instance_type: mac_mini_m1 # Necessario per compilare iOS
+    environment:
+      node: latest
+      npm: latest
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install dependencies
+        script: | 
+          npm install
+          npm install -g @ionic/cli
+      - name: Ionic Build
+        script: | 
+          ionic build --prod
+      - name: Setup Android
+        script: | 
+          npx cap add android || true
+          npx cap sync android
+      - name: Build Android APK (Debug/Unsigned)
+        script: | 
+          cd android && ./gradlew assembleDebug
+      - name: Setup iOS
+        script: | 
+          npx cap add ios || true
+          npx cap sync ios
+      - name: Build iOS (IPA)
+        script: | 
+          # Per AltStore ti serve un file .ipa
+          # Nota: Senza certificati Apple configurati, Codemagic genererà un archivio non firmato
+          # o fallirà se non trova profili validi.
+          find . -name "Podfile" -execdir pod install \;
+          xcode-project build-ipa --workspace ios/App/App.xcworkspace --scheme App
+    artifacts:
+      - android/app/build/outputs/apk/**/*.apk
+      - build/ios/ipa/*.ipa
+    publishing:
+      email:
+        recipients:
+          - il_tuo_indirizzo@esempio.it
