@@ -341,7 +341,7 @@ export default function GalleryPage() {
 
       <div 
         ref={contentRef}
-        className="min-h-screen bg-background"
+        className="min-h-screen bg-background overflow-y-auto"
         onTouchStart={viewMode === 'gallery' ? handleTouchStart : undefined}
         onTouchMove={viewMode === 'gallery' ? handleTouchMove : undefined}
         onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}
