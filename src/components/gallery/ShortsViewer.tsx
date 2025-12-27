@@ -139,15 +139,14 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     
     setIsLiking(true);
     try {
-      const currentVote = userVotes.get(currentPost.id) || 0;
-      const newVote = currentVote === 1 ? 0 : 1;
-      const result = await e621Api.votePost(currentPost.id, newVote as 1 | -1 | 0);
+      // e621 API: sending score=1 toggles like on/off
+      const result = await e621Api.votePost(currentPost.id, 1);
       
       setLocalPosts(prev => prev.map((p, i) => 
         i === currentIndex ? { ...p, score: { up: result.up, down: result.down, total: result.score } } : p
       ));
-      setUserVotes(prev => new Map(prev).set(currentPost.id, newVote as 1 | -1 | 0));
-      toast.success(newVote === 1 ? 'Like aggiunto!' : 'Like rimosso');
+      setUserVotes(prev => new Map(prev).set(currentPost.id, result.our_score as 1 | -1 | 0));
+      toast.success(result.our_score === 1 ? 'Like aggiunto!' : 'Like rimosso');
     } catch (error) {
       toast.error('Errore nel mettere like');
       console.error(error);
@@ -166,15 +165,14 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     
     setIsDisliking(true);
     try {
-      const currentVote = userVotes.get(currentPost.id) || 0;
-      const newVote = currentVote === -1 ? 0 : -1;
-      const result = await e621Api.votePost(currentPost.id, newVote as 1 | -1 | 0);
+      // e621 API: sending score=-1 toggles dislike on/off
+      const result = await e621Api.votePost(currentPost.id, -1);
       
       setLocalPosts(prev => prev.map((p, i) => 
         i === currentIndex ? { ...p, score: { up: result.up, down: result.down, total: result.score } } : p
       ));
-      setUserVotes(prev => new Map(prev).set(currentPost.id, newVote as 1 | -1 | 0));
-      toast.success(newVote === -1 ? 'Dislike aggiunto!' : 'Dislike rimosso');
+      setUserVotes(prev => new Map(prev).set(currentPost.id, result.our_score as 1 | -1 | 0));
+      toast.success(result.our_score === -1 ? 'Dislike aggiunto!' : 'Dislike rimosso');
     } catch (error) {
       toast.error('Errore nel mettere dislike');
       console.error(error);
@@ -266,18 +264,33 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     window.open(`https://e621.net/posts/${currentPost.id}`, '_blank');
   };
 
-  // Handle touch swipe
+  // Handle touch swipe (vertical for navigation, horizontal for view mode)
   const touchStartY = useRef<number>(0);
+  const touchStartX = useRef<number>(0);
+  
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     const touchEndY = e.changedTouches[0].clientY;
-    const diff = touchStartY.current - touchEndY;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diffY = touchStartY.current - touchEndY;
+    const diffX = touchStartX.current - touchEndX;
     
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) {
+    // Horizontal swipe to change view mode (swipe right = go to gallery)
+    if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+      if (diffX < 0) {
+        // Swipe right -> go to Gallery
+        handleExitToGallery();
+        return;
+      }
+    }
+    
+    // Vertical swipe for video navigation
+    if (Math.abs(diffY) > 50 && Math.abs(diffY) > Math.abs(diffX)) {
+      if (diffY > 0) {
         goToNext();
       } else {
         goToPrevious();
