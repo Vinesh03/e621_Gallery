@@ -1,7 +1,7 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
 import { useSearchStore, useAuthStore, useUserInteractionsStore } from '@/stores/appStore';
-import { Dialog, DialogContent, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { X, Download, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle, Star, Loader2 } from 'lucide-react';
@@ -722,6 +722,8 @@ export function PostViewer({
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
         <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] p-0 gap-0 bg-background/95 backdrop-blur-lg border-border overflow-hidden">
+          <DialogTitle className="sr-only">Visualizzatore post {localPost.id}</DialogTitle>
+          <DialogTitle className="sr-only">Visualizzatore post {localPost.id}</DialogTitle>
           <DialogDescription className="sr-only">Visualizzatore post {localPost.id}</DialogDescription>
           <div className="relative flex flex-col h-[95vh]">
             {/* Header */}
