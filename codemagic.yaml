@@ -4,15 +4,19 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
     environment:
-      node: 20 # npm 11 richiede Node 18 o 20+
+      node: 20.11.0 # Specifichiamo una versione stabile per npm 10/11
       vars:
         PACKAGE_NAME: "com.e621.seeker86"
     triggering:
-      events: [] # Nessun trigger automatico, solo manuale
+      events: [] 
     scripts:
       - name: Install npm dependencies
+        script: | 
+          # Pulisce eventuali rimasugli e installa in modo pulito
+          npm ci || npm install --legacy-peer-deps
+      - name: Set Android SDK location
         script: |
-          npm install
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
       - name: Build Android (Unsigned APK)
         script: |
           cd android
@@ -26,28 +30,24 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       vars:
-        XCODE_WORKSPACE: "seeker86.xcworkspace" # Verifica se il nome è corretto
+        XCODE_WORKSPACE: "seeker86.xcworkspace"
         XCODE_SCHEME: "seeker86"
-        BUNDLE_ID: "e621.seeker86"
-      node: 20
+      node: 20.11.0
       xcode: latest
       cocoapods: default
     triggering:
-      events: [] # Solo manuale
+      events: []
     scripts:
       - name: Install npm dependencies
         script: |
-          npm install
+          npm ci || npm install --legacy-peer-deps
       - name: Install CocoaPods
         script: |
           cd ios && pod install
       - name: Build iOS (Debug/Simulator)
         script: |
-          # Nota: Senza Apple Developer collegato, 
-          # generiamo una build di test o simulatore.
           xcode-project build-ipa \
             --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
             --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/xcodebuild_logs/*.log
