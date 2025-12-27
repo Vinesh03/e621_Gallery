@@ -212,6 +212,29 @@ const applyThemeMode = (mode: ThemeMode) => {
   }
 };
 
+// Setup listener for system theme changes
+let systemThemeListener: ((e: MediaQueryListEvent) => void) | null = null;
+
+const setupSystemThemeListener = (mode: ThemeMode) => {
+  // Remove existing listener
+  if (systemThemeListener) {
+    window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', systemThemeListener);
+    systemThemeListener = null;
+  }
+  
+  // Only add listener when in system mode
+  if (mode === 'system') {
+    systemThemeListener = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', systemThemeListener);
+  }
+};
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
@@ -231,6 +254,7 @@ export const useSettingsStore = create<SettingsState>()(
       setDarkMode: (enabled) => set({ darkMode: enabled }),
       setThemeMode: (mode) => {
         applyThemeMode(mode);
+        setupSystemThemeListener(mode);
         set({ themeMode: mode, darkMode: mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) });
       },
       setGridColumns: (columns) => set({ gridColumns: columns }),
@@ -267,6 +291,7 @@ export const useSettingsStore = create<SettingsState>()(
         // Apply theme mode
         if (state?.themeMode) {
           applyThemeMode(state.themeMode);
+          setupSystemThemeListener(state.themeMode);
         } else if (state?.darkMode) {
           document.documentElement.classList.add('dark');
         } else {

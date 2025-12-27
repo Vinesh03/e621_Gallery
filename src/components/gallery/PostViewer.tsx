@@ -243,12 +243,13 @@ export function PostViewer({
     let newTags: string[];
 
     if (isTagExcluded(tag)) {
+      // Remove exclusion
       newTags = tags.filter(t => t !== `-${tag}`);
     } else if (isTagInSearch(tag)) {
+      // Tag is in search, remove it
       newTags = tags.filter(t => t !== tag);
-      newTags.push(`-${tag}`);
     } else {
-      newTags.push(tag);
+      // Add tag to search
       newTags = [...tags, tag];
     }
 
