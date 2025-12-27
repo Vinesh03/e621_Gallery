@@ -1,0 +1,53 @@
+workflows:
+  react-native-android:
+    name: React Native Android (Manuale)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      node: 20 # npm 11 richiede Node 18 o 20+
+      vars:
+        PACKAGE_NAME: "com.e621.seeker86"
+    triggering:
+      events: [] # Nessun trigger automatico, solo manuale
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install
+      - name: Build Android (Unsigned APK)
+        script: |
+          cd android
+          ./gradlew assembleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+
+  react-native-ios:
+    name: React Native iOS (Manuale)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      vars:
+        XCODE_WORKSPACE: "seeker86.xcworkspace" # Verifica se il nome è corretto
+        XCODE_SCHEME: "seeker86"
+        BUNDLE_ID: "e621.seeker86"
+      node: 20
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events: [] # Solo manuale
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install
+      - name: Install CocoaPods
+        script: |
+          cd ios && pod install
+      - name: Build iOS (Debug/Simulator)
+        script: |
+          # Nota: Senza Apple Developer collegato, 
+          # generiamo una build di test o simulatore.
+          xcode-project build-ipa \
+            --workspace "$CM_BUILD_DIR/ios/$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
