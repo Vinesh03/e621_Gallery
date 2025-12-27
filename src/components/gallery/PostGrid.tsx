@@ -1,3 +1,4 @@
+import React, { useEffect, useRef } from 'react';
 import { E621Post } from '@/types/e621';
 import { PostCard } from './PostCard';
 import { Loader2 } from 'lucide-react';
@@ -19,6 +20,89 @@ export function PostGrid({
   onLoadMore,
   hasMore 
 }: PostGridProps) {
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const cooldownRef = useRef(false);
+  const cooldownTimerRef = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    if (!onLoadMore || !hasMore) return;
+    if (typeof window === 'undefined' || !("IntersectionObserver" in window)) return;
+
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    // find nearest scrollable ancestor to use as root (fallback to viewport)
+    const findScrollParent = (node: HTMLElement | null): HTMLElement | null => {
+      while (node) {
+        const style = window.getComputedStyle(node);
+        const overflowY = style.overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') return node;
+        node = node.parentElement;
+      }
+      return null;
+    };
+
+    const rootEl = findScrollParent(el) || null;
+
+    // create observer once and store in ref
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !isLoading && !cooldownRef.current) {
+            // stop observing while we load to avoid rapid retriggers
+            try {
+              observerRef.current?.unobserve(el);
+            } catch (e) {
+              /* ignore */
+            }
+            // set a short cooldown to guard against rapid retriggers
+            cooldownRef.current = true;
+            // kick off load
+            onLoadMore();
+            // ensure we clear any existing timer
+            if (cooldownTimerRef.current) {
+              clearTimeout(cooldownTimerRef.current);
+            }
+            // re-enable after cooldown (ms)
+            cooldownTimerRef.current = window.setTimeout(() => {
+              cooldownRef.current = false;
+              try {
+                if (observerRef.current && el) observerRef.current.observe(el);
+              } catch (e) {
+                /* ignore */
+              }
+            }, 800) as unknown as number;
+          }
+        });
+      },
+      { root: rootEl, rootMargin: '300px', threshold: 0.1 }
+    );
+
+    observerRef.current.observe(el);
+    return () => {
+      observerRef.current?.disconnect();
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+      }
+    };
+  }, [onLoadMore, hasMore, isLoading]);
+
+  // Re-observe when loading finished and there are more items
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    if (!observerRef.current) return;
+
+    if (!isLoading && hasMore) {
+      try {
+        observerRef.current.observe(el);
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }, [isLoading, hasMore]);
+
   if (!isLoading && posts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
@@ -33,7 +117,7 @@ export function PostGrid({
       <div className="masonry-grid">
         {posts.map((post, index) => (
           <PostCard
-            key={post.id}
+            key={`${post.id}-${index}`}
             post={post}
             index={index}
             onClick={() => onPostClick(post)}
@@ -42,13 +126,16 @@ export function PostGrid({
         ))}
       </div>
 
+      <div ref={sentinelRef} className="w-full h-1" aria-hidden="true" />
+
       {isLoading && (
         <div className="flex justify-center py-8">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       )}
 
-      {!isLoading && hasMore && onLoadMore && (
+      {/* Fallback button for environments without IntersectionObserver */}
+      {!isLoading && hasMore && onLoadMore && (typeof window === 'undefined' || !("IntersectionObserver" in window)) && (
         <div className="flex justify-center py-6">
           <button
             onClick={onLoadMore}

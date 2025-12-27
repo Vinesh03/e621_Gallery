@@ -103,9 +103,21 @@ export default function GalleryPage() {
       });
       
       if (append) {
-        setPosts(prev => [...prev, ...newPosts]);
+        setPosts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const filteredNew = newPosts.filter(p => !existingIds.has(p.id));
+          if (filteredNew.length === 0) {
+            console.log('[fetchPosts] no new posts to append, stopping hasMore', { searchTags, pageNum });
+            setHasMore(false);
+            return prev;
+          }
+          const merged = [...prev, ...filteredNew];
+          console.log('[fetchPosts] append', { searchTags, pageNum, prevLength: prev.length, added: filteredNew.length, total: merged.length });
+          return merged;
+        });
       } else {
         setPosts(newPosts);
+        console.log('[fetchPosts] replace', { searchTags, pageNum, newPosts: newPosts.length });
         // Cache first page results
         if (pageNum === 1) {
           setCachedPosts(newPosts, searchTags, ratingFilter, mediaFilter);
@@ -166,9 +178,21 @@ export default function GalleryPage() {
       });
       
       if (append) {
-        setShortsPosts(prev => [...prev, ...newPosts]);
+        setShortsPosts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const filteredNew = newPosts.filter(p => !existingIds.has(p.id));
+          if (filteredNew.length === 0) {
+            console.log('[fetchShortsPosts] no new shorts to append, stopping hasMoreShorts', { searchTags, pageNum });
+            setHasMoreShorts(false);
+            return prev;
+          }
+          const merged = [...prev, ...filteredNew];
+          console.log('[fetchShortsPosts] append', { searchTags, pageNum, prevLength: prev.length, added: filteredNew.length, total: merged.length });
+          return merged;
+        });
       } else {
         setShortsPosts(newPosts);
+        console.log('[fetchShortsPosts] replace', { searchTags, pageNum, newPosts: newPosts.length });
       }
       setHasMoreShorts(newPosts.length === 20);
     } catch (error) {
@@ -181,13 +205,20 @@ export default function GalleryPage() {
 
   // Track if this is first render
   const isFirstRenderRef = useRef(true);
+  // Ref to prevent concurrent fetches from triggering duplicated page requests
+  const isFetchingRef = useRef(false);
+  // Refs to track the latest page values synchronously to avoid race conditions
+  const pageRef = useRef<number>(page);
+  const shortsPageRef = useRef<number>(shortsPage);
   
   useEffect(() => {
     if (viewMode === 'gallery') {
       setPage(1);
+      pageRef.current = 1;
       fetchPosts(currentTags, 1, false, isFirstRenderRef.current);
     } else {
       setShortsPage(1);
+      shortsPageRef.current = 1;
       fetchShortsPosts(currentTags, 1, false);
     }
     isFirstRenderRef.current = false;
@@ -197,16 +228,37 @@ export default function GalleryPage() {
     setCurrentTags(tags);
   };
 
-  const handleLoadMore = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchPosts(currentTags, nextPage, true);
+  const handleLoadMore = async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const nextPage = pageRef.current + 1;
+      // update both ref and state
+      pageRef.current = nextPage;
+      setPage(nextPage);
+      console.log('[handleLoadMore] triggering', { currentTags, nextPage });
+      await fetchPosts(currentTags, nextPage, true);
+    } catch (e) {
+      console.error('[handleLoadMore] error', e);
+    } finally {
+      isFetchingRef.current = false;
+    }
   };
 
-  const handleLoadMoreShorts = () => {
-    const nextPage = shortsPage + 1;
-    setShortsPage(nextPage);
-    fetchShortsPosts(currentTags, nextPage, true);
+  const handleLoadMoreShorts = async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const nextPage = shortsPageRef.current + 1;
+      shortsPageRef.current = nextPage;
+      setShortsPage(nextPage);
+      console.log('[handleLoadMoreShorts] triggering', { currentTags, nextPage });
+      await fetchShortsPosts(currentTags, nextPage, true);
+    } catch (e) {
+      console.error('[handleLoadMoreShorts] error', e);
+    } finally {
+      isFetchingRef.current = false;
+    }
   };
 
   const handleDownload = async (post: E621Post) => {

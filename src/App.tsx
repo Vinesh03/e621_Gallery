@@ -1,13 +1,27 @@
+import React, { useEffect, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect } from "react";
+import { createBrowserRouter, RouterProvider, Navigate } from "react-router-dom";
 import { useAuthStore, useSettingsStore, initializeTheme } from "@/stores/appStore";
-import LoginPage from "@/pages/LoginPage";
-import GalleryPage from "@/pages/GalleryPage";
-import FavoritesPage from "@/pages/FavoritesPage";
-import NotFound from "@/pages/NotFound";
+
+const LoginPage = React.lazy(() => import("@/pages/LoginPage"));
+const GalleryPage = React.lazy(() => import("@/pages/GalleryPage"));
+const FavoritesPage = React.lazy(() => import("@/pages/FavoritesPage"));
+const NotFound = React.lazy(() => import("@/pages/NotFound"));
+
+const router = createBrowserRouter([
+  { path: "/login", element: <LoginPage /> },
+  { path: "/gallery", element: <GalleryPageWithProtect /> },
+  { path: "/favorites", element: <FavoritesPageWithProtect /> },
+  { path: "/", element: <Navigate to="/gallery" replace /> },
+  { path: "*", element: <NotFound /> },
+], {
+  future: {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true,
+  }
+});
 
 const queryClient = new QueryClient();
 
@@ -22,6 +36,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function GalleryPageWithProtect() {
+  return (
+    <ProtectedRoute>
+      <GalleryPage />
+    </ProtectedRoute>
+  );
+}
+
+function FavoritesPageWithProtect() {
+  return (
+    <ProtectedRoute>
+      <FavoritesPage />
+    </ProtectedRoute>
+  );
+}
+
 function AppContent() {
   const { themeMode } = useSettingsStore();
 
@@ -32,21 +62,23 @@ function AppContent() {
 
 
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/gallery" element={
-        <ProtectedRoute>
-          <GalleryPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/favorites" element={
-        <ProtectedRoute>
-          <FavoritesPage />
-        </ProtectedRoute>
-      } />
-      <Route path="/" element={<Navigate to="/gallery" replace />} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <Suspense fallback={<div className="p-4">Loading…</div>}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/gallery" element={
+          <ProtectedRoute>
+            <GalleryPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/favorites" element={
+          <ProtectedRoute>
+            <FavoritesPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/" element={<Navigate to="/gallery" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   );
 }
 
@@ -54,9 +86,9 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
+      <Suspense fallback={<div className="p-4">Loading…</div>}>
+        <RouterProvider router={router} />
+      </Suspense>
     </TooltipProvider>
   </QueryClientProvider>
 );
