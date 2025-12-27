@@ -33,7 +33,6 @@ export default function GalleryPage() {
   const [hasMoreShorts, setHasMoreShorts] = useState(true);
   const [selectedPost, setSelectedPost] = useState<E621Post | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
-  const [showSplash, setShowSplash] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
   
@@ -42,15 +41,23 @@ export default function GalleryPage() {
   const touchStartY = useRef<number>(0);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const { ratingFilter, mediaFilter, viewMode, setViewMode } = useSettingsStore();
+  const { ratingFilter, mediaFilter, viewMode, setViewMode, hasShownInitialSplash, setHasShownInitialSplash } = useSettingsStore();
   const { currentTags, setCurrentTags, getCachedPosts, setCachedPosts } = useSearchStore();
   const { credentials, isGuest, isFirstLogin, setNotFirstLogin } = useAuthStore();
 
-  // Hide splash after 2 seconds
+  // Show splash only on first app load
+  const [showSplash, setShowSplash] = useState(!hasShownInitialSplash);
+
+  // Hide splash after 2 seconds and mark as shown
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2000);
-    return () => clearTimeout(timer);
-  }, []);
+    if (showSplash) {
+      const timer = setTimeout(() => {
+        setShowSplash(false);
+        setHasShownInitialSplash(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSplash, setHasShownInitialSplash]);
 
   // Show greeting toast on first login
   useEffect(() => {
@@ -269,7 +276,7 @@ export default function GalleryPage() {
       <header
         className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border"
       >
-        <div className="container py-3">
+        <div className="container py-3" style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}>
           {/* User menu */}
           <div className="flex items-center justify-end mb-2">
             <UserMenu />
