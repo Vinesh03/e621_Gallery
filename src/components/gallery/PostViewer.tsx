@@ -145,15 +145,16 @@ export function PostViewer({
     
     setIsLiking(true);
     try {
-      // If already liked, remove like (vote 0)
-      const newScore = userVote === 1 ? 0 : 1;
-      const result = await e621Api.votePost(localPost.id, newScore as 1 | -1 | 0);
+      // e621 API: sending score=1 toggles like on/off
+      // If user has dislike, first we need to send score=1 to switch
+      const result = await e621Api.votePost(localPost.id, 1);
       setLocalPost(prev => prev ? {
         ...prev,
         score: { up: result.up, down: result.down, total: result.score }
       } : null);
-      setUserVote(localPost.id, newScore as 1 | -1 | 0);
-      toast.success(newScore === 1 ? 'Like aggiunto!' : 'Like rimosso');
+      // our_score: 1 = liked, -1 = disliked, 0 = no vote
+      setUserVote(localPost.id, result.our_score as 1 | -1 | 0);
+      toast.success(result.our_score === 1 ? 'Like aggiunto!' : 'Like rimosso');
     } catch (error) {
       toast.error('Errore nel mettere like');
       console.error(error);
@@ -170,15 +171,15 @@ export function PostViewer({
     
     setIsDisliking(true);
     try {
-      // If already disliked, remove dislike (vote 0)
-      const newScore = userVote === -1 ? 0 : -1;
-      const result = await e621Api.votePost(localPost.id, newScore as 1 | -1 | 0);
+      // e621 API: sending score=-1 toggles dislike on/off
+      const result = await e621Api.votePost(localPost.id, -1);
       setLocalPost(prev => prev ? {
         ...prev,
         score: { up: result.up, down: result.down, total: result.score }
       } : null);
-      setUserVote(localPost.id, newScore as 1 | -1 | 0);
-      toast.success(newScore === -1 ? 'Dislike aggiunto!' : 'Dislike rimosso');
+      // our_score: 1 = liked, -1 = disliked, 0 = no vote
+      setUserVote(localPost.id, result.our_score as 1 | -1 | 0);
+      toast.success(result.our_score === -1 ? 'Dislike aggiunto!' : 'Dislike rimosso');
     } catch (error) {
       toast.error('Errore nel mettere dislike');
       console.error(error);

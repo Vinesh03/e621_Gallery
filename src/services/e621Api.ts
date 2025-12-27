@@ -236,13 +236,15 @@ class E621Api {
     }
   }
 
-  async votePost(postId: number, score: 1 | -1 | 0): Promise<{ score: number; up: number; down: number }> {
+  async votePost(postId: number, score: 1 | -1, unvote: boolean = false): Promise<{ score: number; up: number; down: number; our_score: number }> {
     if (!this.credentials) {
       throw new Error('Not authenticated');
     }
 
     const url = this.buildUrl(`/posts/${postId}/votes.json`);
 
+    // e621 API: no_unvote=false means it will toggle (remove) if same vote is sent twice
+    // To explicitly remove a vote, send the same vote with no_unvote=false
     const response = await fetch(url, {
       method: 'POST',
       headers: {

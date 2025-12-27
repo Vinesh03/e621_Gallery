@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
 import { useSettingsStore, useSearchStore, useAuthStore } from '@/stores/appStore';
@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, Play } from 'lucide-react';
 import { UserMenu } from '@/components/gallery/UserMenu';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -36,6 +36,11 @@ export default function GalleryPage() {
   const [showSplash, setShowSplash] = useState(true);
   const [connectionError, setConnectionError] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  
+  // Swipe handling for view mode switching
+  const touchStartX = useRef<number>(0);
+  const touchStartY = useRef<number>(0);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const { ratingFilter, mediaFilter, viewMode, setViewMode } = useSettingsStore();
   const { currentTags, setCurrentTags, getCachedPosts, setCachedPosts } = useSearchStore();
@@ -225,13 +230,41 @@ export default function GalleryPage() {
 
   const displayName = credentials?.username || (isGuest ? 'Ospite' : null);
 
+  // Handle swipe to change view mode
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    const diffX = touchStartX.current - touchEndX;
+    const diffY = touchStartY.current - touchEndY;
+    
+    // Only trigger if horizontal swipe is dominant and significant
+    if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+      if (diffX > 0 && viewMode === 'gallery') {
+        // Swipe left -> go to Shorts
+        setViewMode('shorts');
+      } else if (diffX < 0 && viewMode === 'shorts') {
+        // Swipe right -> go to Gallery (handled in ShortsViewer)
+      }
+    }
+  };
+
   return (
     <>
       <AnimatePresence>
         {showSplash && <SplashScreen />}
       </AnimatePresence>
 
-      <div className="min-h-screen bg-background">
+      <div 
+        ref={contentRef}
+        className="min-h-screen bg-background"
+        onTouchStart={viewMode === 'gallery' ? handleTouchStart : undefined}
+        onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}
+      >
       {/* Header */}
       <header
         className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border"
