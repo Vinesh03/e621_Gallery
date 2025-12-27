@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 
 interface ShortsViewerProps {
   posts: E621Post[];
@@ -595,14 +595,14 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         )}
       </div>
 
-      {/* Info Sheet */}
-      <Sheet open={showInfoSheet} onOpenChange={setShowInfoSheet}>
-        <SheetContent side="bottom" className="h-[60vh] rounded-t-2xl">
-          <SheetHeader>
-            <SheetTitle>Info Video</SheetTitle>
-          </SheetHeader>
+      {/* Info Drawer - uses Drawer for swipe-to-close support */}
+      <Drawer open={showInfoSheet} onOpenChange={setShowInfoSheet}>
+        <DrawerContent className="h-[60vh]">
+          <DrawerHeader>
+            <DrawerTitle>Info Video</DrawerTitle>
+          </DrawerHeader>
           {currentPost && (
-            <div className="mt-4 space-y-4 overflow-y-auto h-[calc(100%-60px)]">
+            <div className="px-4 pb-4 space-y-4 overflow-y-auto h-[calc(100%-60px)]">
               {/* Post ID and rating */}
               <div className="flex items-center gap-3">
                 <span className="text-sm font-mono text-muted-foreground">#{currentPost.id}</span>
@@ -712,8 +712,8 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
               )}
             </div>
           )}
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
 
       {/* Login Required Dialog */}
       <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>

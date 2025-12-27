@@ -116,6 +116,24 @@ export function PostViewer({
     setShowComments(false);
   }, [post?.id]);
 
+  // Handle browser back button to close viewer
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      handleClose();
+    };
+
+    // Push a new state when opening viewer
+    window.history.pushState({ postViewer: true, postId: post?.id }, '');
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isOpen, post?.id]);
+
   if (!localPost) return null;
 
   const isVideo = localPost.file.ext === 'webm' || localPost.file.ext === 'mp4';
@@ -424,14 +442,7 @@ export function PostViewer({
                                 setInAppVideoUrl(null);
                               }}
                             />
-                            <button
-                              type="button"
-                              aria-label="Chiudi video"
-                              onClick={() => setInAppVideoUrl(null)}
-                              className="absolute top-2 right-2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
+                            {/* Removed the extra X button for video - use the main close button instead */}
                           </div>
                         ) : (
                           <div

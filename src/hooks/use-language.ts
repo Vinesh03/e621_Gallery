@@ -79,6 +79,8 @@ const translations: Record<Language, Record<string, string>> = {
     'saved.added': 'Ricerca salvata!',
     'saved.removed': 'Ricerca eliminata',
     'saved.renamed': 'Ricerca rinominata',
+    'saved.overwritten': 'Ricerca sovrascritta!',
+    'saved.overwrite': 'Sovrascrivi',
     
     // Info
     'info.title': 'Informazioni',
@@ -177,6 +179,8 @@ const translations: Record<Language, Record<string, string>> = {
     'saved.added': 'Search saved!',
     'saved.removed': 'Search deleted',
     'saved.renamed': 'Search renamed',
+    'saved.overwritten': 'Search overwritten!',
+    'saved.overwrite': 'Overwrite',
     
     // Info
     'info.title': 'Information',
@@ -260,6 +264,8 @@ const translations: Record<Language, Record<string, string>> = {
     'saved.added': '¡Búsqueda guardada!',
     'saved.removed': 'Búsqueda eliminada',
     'saved.renamed': 'Búsqueda renombrada',
+    'saved.overwritten': '¡Búsqueda sobrescrita!',
+    'saved.overwrite': 'Sobrescribir',
     'info.title': 'Información',
     'info.artists': 'Artistas',
     'info.characters': 'Personajes',
@@ -337,6 +343,8 @@ const translations: Record<Language, Record<string, string>> = {
     'saved.added': 'Recherche sauvegardée!',
     'saved.removed': 'Recherche supprimée',
     'saved.renamed': 'Recherche renommée',
+    'saved.overwritten': 'Recherche écrasée!',
+    'saved.overwrite': 'Écraser',
     'info.title': 'Informations',
     'info.artists': 'Artistes',
     'info.characters': 'Personnages',
@@ -414,6 +422,8 @@ const translations: Record<Language, Record<string, string>> = {
     'saved.added': 'Suche gespeichert!',
     'saved.removed': 'Suche gelöscht',
     'saved.renamed': 'Suche umbenannt',
+    'saved.overwritten': 'Suche überschrieben!',
+    'saved.overwrite': 'Überschreiben',
     'info.title': 'Informationen',
     'info.artists': 'Künstler',
     'info.characters': 'Charaktere',
@@ -491,6 +501,8 @@ const translations: Record<Language, Record<string, string>> = {
     'saved.added': 'Pesquisa salva!',
     'saved.removed': 'Pesquisa excluída',
     'saved.renamed': 'Pesquisa renomeada',
+    'saved.overwritten': 'Pesquisa sobrescrita!',
+    'saved.overwrite': 'Sobrescrever',
     'info.title': 'Informações',
     'info.artists': 'Artistas',
     'info.characters': 'Personagens',
