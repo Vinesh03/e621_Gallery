@@ -1,11 +1,11 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { Star, Download, ExternalLink, Loader2, ThumbsUp, ThumbsDown, LayoutGrid, Play } from 'lucide-react';
+import { Star, Download, ExternalLink, Loader2, ThumbsUp, ThumbsDown, LayoutGrid, Play, Info, ChevronDown, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useAuthStore, useSettingsStore } from '@/stores/appStore';
+import { useAuthStore, useSettingsStore, useSearchStore } from '@/stores/appStore';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
@@ -16,6 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 interface ShortsViewerProps {
   posts: E621Post[];
@@ -40,12 +41,14 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   const [userVotes, setUserVotes] = useState<Map<number, 1 | -1 | 0>>(new Map());
   // Track user favorites per post
   const [userFavorites, setUserFavorites] = useState<Set<number>>(new Set());
+  const [showInfoSheet, setShowInfoSheet] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
   const preloadedUrls = useRef<Set<string>>(new Set());
   
   const { isGuest, logout } = useAuthStore();
   const { viewMode, setViewMode } = useSettingsStore();
+  const { setCurrentTags } = useSearchStore();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
@@ -117,12 +120,16 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     preloadVideos();
   }, [currentIndex, localPosts]);
 
-  // Pause videos that are not visible
+  // Play/pause videos based on current index - WITH SOUND
   useEffect(() => {
     videoRefs.current.forEach((video, index) => {
       if (index === currentIndex) {
-        video.muted = true; // Start muted to allow autoplay
-        video.play().catch(() => {});
+        video.muted = false; // Volume ON by default
+        video.play().catch(() => {
+          // If autoplay with sound fails, try muted
+          video.muted = true;
+          video.play().catch(() => {});
+        });
       } else {
         video.pause();
       }
@@ -264,6 +271,24 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     window.open(`https://e621.net/posts/${currentPost.id}`, '_blank');
   };
 
+  const handleSearchArtist = (artist: string) => {
+    setCurrentTags(artist);
+    setShowInfoSheet(false);
+    handleExitToGallery();
+  };
+
+  const handleSearchCharacter = (character: string) => {
+    setCurrentTags(character);
+    setShowInfoSheet(false);
+    handleExitToGallery();
+  };
+
+  const handleSearchTag = (tag: string) => {
+    setCurrentTags(tag);
+    setShowInfoSheet(false);
+    handleExitToGallery();
+  };
+
   // Handle touch swipe (vertical for navigation, horizontal for view mode)
   const touchStartY = useRef<number>(0);
   const touchStartX = useRef<number>(0);
@@ -300,18 +325,30 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
 
   const currentIsFavorited = currentPost ? (userFavorites.has(currentPost.id) || currentPost.is_favorited) : false;
 
-  // Show loading state instead of "no videos" when initially loading
+  // Show loading state with both menu tabs
   if (localPosts.length === 0 && isLoading) {
     return (
-      <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
-        {/* Gallery button even during loading */}
-        <button
-          onClick={handleExitToGallery}
-          className="absolute top-4 left-4 z-50 px-4 py-2 rounded-full bg-background/80 hover:bg-background transition-colors flex items-center gap-2"
-        >
-          <LayoutGrid className="w-5 h-5" />
-          <span className="text-sm font-medium">Galleria</span>
-        </button>
+      <div 
+        className="fixed inset-0 bg-background z-50 flex items-center justify-center"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* View mode toggle - same as GalleryPage */}
+        <div className="absolute top-4 left-4 right-4 z-50 flex items-center gap-2">
+          <button
+            onClick={handleExitToGallery}
+            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span className="font-medium text-sm">Galleria</span>
+          </button>
+          <button
+            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-primary text-primary-foreground"
+          >
+            <Play className="w-4 h-4" />
+            <span className="font-medium text-sm">Shorts</span>
+          </button>
+        </div>
         <div className="text-center flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <p className="text-muted-foreground">Caricamento video...</p>
@@ -322,15 +359,27 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
 
   if (localPosts.length === 0) {
     return (
-      <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
-        {/* Gallery button */}
-        <button
-          onClick={handleExitToGallery}
-          className="absolute top-4 left-4 z-50 px-4 py-2 rounded-full bg-background/80 hover:bg-background transition-colors flex items-center gap-2"
-        >
-          <LayoutGrid className="w-5 h-5" />
-          <span className="text-sm font-medium">Galleria</span>
-        </button>
+      <div 
+        className="fixed inset-0 bg-background z-50 flex items-center justify-center"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* View mode toggle - same as GalleryPage */}
+        <div className="absolute top-4 left-4 right-4 z-50 flex items-center gap-2">
+          <button
+            onClick={handleExitToGallery}
+            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span className="font-medium text-sm">Galleria</span>
+          </button>
+          <button
+            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-primary text-primary-foreground"
+          >
+            <Play className="w-4 h-4" />
+            <span className="font-medium text-sm">Shorts</span>
+          </button>
+        </div>
         <div className="text-center">
           <p className="text-muted-foreground">Nessun video trovato</p>
           <button onClick={handleExitToGallery} className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg">
@@ -437,6 +486,13 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
             <span className="text-xs mt-1">{currentPost?.fav_count || 0}</span>
           </button>
           <button
+            onClick={() => setShowInfoSheet(true)}
+            className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors"
+            title="Info"
+          >
+            <Info className="w-6 h-6" />
+          </button>
+          <button
             onClick={handleOpenOnE621}
             className="p-3 rounded-full bg-background/80 hover:bg-background transition-colors"
             title="Apri su e621"
@@ -491,6 +547,126 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           </div>
         )}
       </div>
+
+      {/* Info Sheet */}
+      <Sheet open={showInfoSheet} onOpenChange={setShowInfoSheet}>
+        <SheetContent side="bottom" className="h-[60vh] rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle>Info Video</SheetTitle>
+          </SheetHeader>
+          {currentPost && (
+            <div className="mt-4 space-y-4 overflow-y-auto h-[calc(100%-60px)]">
+              {/* Post ID and rating */}
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-mono text-muted-foreground">#{currentPost.id}</span>
+                <span className={cn(
+                  "text-sm font-medium",
+                  currentPost.rating === 's' && "text-[hsl(var(--safe))]",
+                  currentPost.rating === 'q' && "text-[hsl(var(--questionable))]",
+                  currentPost.rating === 'e' && "text-[hsl(var(--explicit))]"
+                )}>
+                  {currentPost.rating === 's' ? 'Safe' : currentPost.rating === 'q' ? 'Questionable' : 'Explicit'}
+                </span>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <Star className={cn("w-4 h-4", currentIsFavorited && "fill-primary text-primary")} />
+                  <span>{currentPost.fav_count}</span>
+                </div>
+                <div>Score: {currentPost.score.total}</div>
+                <div className="text-muted-foreground">
+                  {currentPost.file.width}×{currentPost.file.height}
+                </div>
+              </div>
+
+              {/* Artists */}
+              {currentPost.tags.artist.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">Artisti</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {currentPost.tags.artist.map((artist) => (
+                      <button
+                        key={artist}
+                        onClick={() => handleSearchArtist(artist)}
+                        className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
+                      >
+                        {artist}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Characters */}
+              {currentPost.tags.character.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">Personaggi</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {currentPost.tags.character.map((character) => (
+                      <button
+                        key={character}
+                        onClick={() => handleSearchCharacter(character)}
+                        className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent text-sm font-medium hover:bg-accent/20 transition-colors"
+                      >
+                        {character}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Other tags */}
+              <div className="space-y-2">
+                <h3 className="font-semibold text-sm">Altri Tag</h3>
+                <div className="flex flex-wrap gap-1">
+                  {[...currentPost.tags.species, ...currentPost.tags.general].slice(0, 20).map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => handleSearchTag(tag)}
+                      className="px-2 py-1 rounded bg-secondary text-xs hover:bg-secondary/80 transition-colors"
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Description */}
+              {currentPost.description && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">Descrizione</h3>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {currentPost.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Sources */}
+              {currentPost.sources.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-sm">Fonti</h3>
+                  <div className="space-y-1">
+                    {currentPost.sources.slice(0, 3).map((source, i) => (
+                      <a
+                        key={i}
+                        href={source}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-accent hover:underline truncate"
+                      >
+                        <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{source}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Login Required Dialog */}
       <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>

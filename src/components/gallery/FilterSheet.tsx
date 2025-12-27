@@ -1,9 +1,8 @@
 import { useSettingsStore, useAuthStore } from '@/stores/appStore';
 import { RatingFilter, MediaFilter } from '@/types/e621';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { SlidersHorizontal, Moon, Sun, LogOut, Image, Film, Layers } from 'lucide-react';
+import { SlidersHorizontal, Moon, Sun, Monitor, LogOut, Image, Film, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
 import { ThemeCustomizer } from './ThemeCustomizer';
 
@@ -20,24 +19,23 @@ const mediaOptions: { value: MediaFilter; label: string; icon: typeof Image }[] 
   { value: 'video', label: 'Solo Video', icon: Film },
 ];
 
+type ThemeMode = 'dark' | 'light' | 'system';
+
+const themeModeOptions: { value: ThemeMode; label: string; icon: typeof Moon }[] = [
+  { value: 'dark', label: 'Scuro', icon: Moon },
+  { value: 'light', label: 'Chiaro', icon: Sun },
+  { value: 'system', label: 'Sistema', icon: Monitor },
+];
+
 interface FilterSheetProps {
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
 export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
-  const { ratingFilter, setRatingFilter, mediaFilter, setMediaFilter, darkMode, setDarkMode } = useSettingsStore();
+  const { ratingFilter, setRatingFilter, mediaFilter, setMediaFilter, themeMode, setThemeMode } = useSettingsStore();
   const { logout, credentials, isGuest } = useAuthStore();
   const navigate = useNavigate();
-
-  const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
-    if (!darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
 
   const handleLogout = () => {
     logout();
@@ -115,24 +113,33 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
 
           {/* Theme customizer */}
           <div className="space-y-3">
-            <h3 className="font-medium text-sm">Tema</h3>
+            <h3 className="font-medium text-sm">Colore Tema</h3>
             <ThemeCustomizer />
           </div>
 
-          {/* Dark mode toggle */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-secondary">
-            <div className="flex items-center gap-3">
-              {darkMode ? (
-                <Moon className="w-5 h-5" />
-              ) : (
-                <Sun className="w-5 h-5" />
-              )}
-              <span className="font-medium text-sm">Dark Mode</span>
+          {/* Theme mode selector */}
+          <div className="space-y-3">
+            <h3 className="font-medium text-sm">Modalità Tema</h3>
+            <div className="grid grid-cols-3 gap-2">
+              {themeModeOptions.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <button
+                    key={option.value}
+                    onClick={() => setThemeMode(option.value)}
+                    className={cn(
+                      "p-3 rounded-lg flex flex-col items-center gap-2 transition-colors",
+                      themeMode === option.value
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary hover:bg-secondary/80"
+                    )}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="text-xs font-medium">{option.label}</span>
+                  </button>
+                );
+              })}
             </div>
-            <Switch
-              checked={darkMode}
-              onCheckedChange={toggleDarkMode}
-            />
           </div>
 
           {/* Logout button */}

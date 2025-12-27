@@ -25,23 +25,29 @@ interface AuthState {
   removeSavedAccount: (username: string) => void;
 }
 
+type ThemeMode = 'dark' | 'light' | 'system';
+
 interface SettingsState {
   ratingFilter: RatingFilter;
   mediaFilter: MediaFilter;
   darkMode: boolean;
+  themeMode: ThemeMode;
   gridColumns: 2 | 3 | 4;
   viewMode: 'gallery' | 'shorts';
   themeHue: number;
   themeSaturation: number;
   savedMediaFilter: MediaFilter; // Saved filter before switching to shorts
+  hasShownInitialSplash: boolean; // Track if splash has been shown this session
   
   setRatingFilter: (filter: RatingFilter) => void;
   setMediaFilter: (filter: MediaFilter) => void;
   setDarkMode: (enabled: boolean) => void;
+  setThemeMode: (mode: ThemeMode) => void;
   setGridColumns: (columns: 2 | 3 | 4) => void;
   setViewMode: (mode: 'gallery' | 'shorts') => void;
   setThemeColor: (hue: number, saturation: number) => void;
   setSavedMediaFilter: (filter: MediaFilter) => void;
+  setHasShownInitialSplash: (shown: boolean) => void;
 }
 
 interface CachedPosts {
@@ -191,47 +197,77 @@ export const useAuthStore = create<AuthState>()(
   )
 );
 
+const applyThemeMode = (mode: ThemeMode) => {
+  if (mode === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (prefersDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  } else if (mode === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+};
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       ratingFilter: 'sqe',
       mediaFilter: 'all',
       darkMode: true,
+      themeMode: 'dark' as ThemeMode,
       gridColumns: 2,
       viewMode: 'gallery',
       themeHue: 215,
       themeSaturation: 85,
       savedMediaFilter: 'all',
+      hasShownInitialSplash: false,
 
       setRatingFilter: (filter) => set({ ratingFilter: filter }),
       setMediaFilter: (filter) => set({ mediaFilter: filter }),
       setDarkMode: (enabled) => set({ darkMode: enabled }),
+      setThemeMode: (mode) => {
+        applyThemeMode(mode);
+        set({ themeMode: mode, darkMode: mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) });
+      },
       setGridColumns: (columns) => set({ gridColumns: columns }),
       setViewMode: (mode) => set({ viewMode: mode }),
       setThemeColor: (hue, saturation) => set({ themeHue: hue, themeSaturation: saturation }),
       setSavedMediaFilter: (filter) => set({ savedMediaFilter: filter }),
+      setHasShownInitialSplash: (shown) => set({ hasShownInitialSplash: shown }),
     }),
     {
       name: 'e6-settings',
-      version: 3,
+      version: 4,
       migrate: (persistedState: any, version: number) => {
-        if (version < 3 && persistedState && typeof persistedState === 'object') {
+        if (version < 4 && persistedState && typeof persistedState === 'object') {
           return {
             ...persistedState,
             ratingFilter: persistedState.ratingFilter ?? 'sqe',
+            themeMode: persistedState.darkMode ? 'dark' : 'light',
+            hasShownInitialSplash: false,
           };
         }
         return persistedState;
       },
       onRehydrateStorage: () => (state) => {
+        // Reset splash flag on app start
+        if (state) {
+          state.hasShownInitialSplash = false;
+        }
         // Apply saved theme on rehydration
         if (state?.themeHue !== undefined && state?.themeSaturation !== undefined) {
           document.documentElement.style.setProperty('--primary', `${state.themeHue} ${state.themeSaturation}% 55%`);
           document.documentElement.style.setProperty('--ring', `${state.themeHue} ${state.themeSaturation}% 55%`);
           document.documentElement.style.setProperty('--accent', `${(state.themeHue + 20) % 360} ${state.themeSaturation}% 55%`);
         }
-        // Apply dark mode
-        if (state?.darkMode) {
+        // Apply theme mode
+        if (state?.themeMode) {
+          applyThemeMode(state.themeMode);
+        } else if (state?.darkMode) {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
