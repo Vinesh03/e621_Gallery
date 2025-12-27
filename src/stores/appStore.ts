@@ -38,6 +38,7 @@ interface SettingsState {
   themeSaturation: number;
   savedMediaFilter: MediaFilter; // Saved filter before switching to shorts
   hasShownInitialSplash: boolean; // Track if splash has been shown this session
+  storageLimitMB: number; // Storage limit in megabytes
   
   setRatingFilter: (filter: RatingFilter) => void;
   setMediaFilter: (filter: MediaFilter) => void;
@@ -48,6 +49,7 @@ interface SettingsState {
   setThemeColor: (hue: number, saturation: number) => void;
   setSavedMediaFilter: (filter: MediaFilter) => void;
   setHasShownInitialSplash: (shown: boolean) => void;
+  setStorageLimitMB: (limit: number) => void;
 }
 
 interface CachedPosts {
@@ -235,19 +237,39 @@ const setupSystemThemeListener = (mode: ThemeMode) => {
   }
 };
 
+// Initialize theme on app start (before store hydration)
+export const initializeTheme = () => {
+  // Get stored theme mode from localStorage
+  const storedSettings = localStorage.getItem('e6-settings');
+  let themeMode: ThemeMode = 'system'; // Default to system
+  
+  if (storedSettings) {
+    try {
+      const parsed = JSON.parse(storedSettings);
+      themeMode = parsed.state?.themeMode || 'system';
+    } catch (e) {
+      // Use default
+    }
+  }
+  
+  applyThemeMode(themeMode);
+  setupSystemThemeListener(themeMode);
+};
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       ratingFilter: 'sqe',
       mediaFilter: 'all',
       darkMode: true,
-      themeMode: 'dark' as ThemeMode,
+      themeMode: 'system' as ThemeMode, // Default to system theme
       gridColumns: 2,
       viewMode: 'gallery',
       themeHue: 215,
       themeSaturation: 85,
       savedMediaFilter: 'all',
       hasShownInitialSplash: false,
+      storageLimitMB: 500, // Default 500MB
 
       setRatingFilter: (filter) => set({ ratingFilter: filter }),
       setMediaFilter: (filter) => set({ mediaFilter: filter }),
@@ -262,17 +284,19 @@ export const useSettingsStore = create<SettingsState>()(
       setThemeColor: (hue, saturation) => set({ themeHue: hue, themeSaturation: saturation }),
       setSavedMediaFilter: (filter) => set({ savedMediaFilter: filter }),
       setHasShownInitialSplash: (shown) => set({ hasShownInitialSplash: shown }),
+      setStorageLimitMB: (limit) => set({ storageLimitMB: limit }),
     }),
     {
       name: 'e6-settings',
-      version: 4,
+      version: 5,
       migrate: (persistedState: any, version: number) => {
-        if (version < 4 && persistedState && typeof persistedState === 'object') {
+        if (version < 5 && persistedState && typeof persistedState === 'object') {
           return {
             ...persistedState,
             ratingFilter: persistedState.ratingFilter ?? 'sqe',
-            themeMode: persistedState.darkMode ? 'dark' : 'light',
+            themeMode: persistedState.themeMode ?? (persistedState.darkMode ? 'dark' : 'system'),
             hasShownInitialSplash: false,
+            storageLimitMB: persistedState.storageLimitMB ?? 500,
           };
         }
         return persistedState;

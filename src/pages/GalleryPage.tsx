@@ -363,12 +363,12 @@ export default function GalleryPage() {
       )}
       {/* Header */}
       <header
-        className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border"
+        className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border overflow-hidden"
         style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
       >
         <div className="container py-3">
-          {/* User menu - fixed height to prevent layout shift */}
-          <div className="flex items-center justify-end mb-2 min-h-[24px]">
+          {/* User menu - fixed height container to prevent layout shift */}
+          <div className="flex items-center justify-end mb-2 h-[24px]">
             <UserMenu />
           </div>
           

@@ -342,9 +342,9 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
         >
           <div className="px-4 py-3">
-            {/* User greeting */}
+            {/* User greeting - fixed height to prevent layout shift */}
             {displayName && (
-              <div className="flex items-center justify-end mb-2 min-h-[24px]">
+              <div className="flex items-center justify-end mb-2 h-[24px]">
                 <span className="text-sm text-muted-foreground">
                   Ciao, <span className="text-primary font-medium">{displayName}</span>
                 </span>
@@ -389,9 +389,9 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
         >
           <div className="px-4 py-3">
-            {/* User greeting */}
+            {/* User greeting - fixed height to prevent layout shift */}
             {displayName && (
-              <div className="flex items-center justify-end mb-2 min-h-[24px]">
+              <div className="flex items-center justify-end mb-2 h-[24px]">
                 <span className="text-sm text-muted-foreground">
                   Ciao, <span className="text-primary font-medium">{displayName}</span>
                 </span>
@@ -441,9 +441,9 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
         >
           <div className="px-4 py-3">
-            {/* User greeting */}
+            {/* User greeting - fixed height to prevent layout shift */}
             {displayName && (
-              <div className="flex items-center justify-end mb-2 min-h-[24px]">
+              <div className="flex items-center justify-end mb-2 h-[24px]">
                 <span className="text-sm text-muted-foreground">
                   Ciao, <span className="text-primary font-medium">{displayName}</span>
                 </span>

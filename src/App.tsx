@@ -3,13 +3,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
-import { useAuthStore, useSettingsStore } from "@/stores/appStore";
+import { useAuthStore, useSettingsStore, initializeTheme } from "@/stores/appStore";
 import LoginPage from "@/pages/LoginPage";
 import GalleryPage from "@/pages/GalleryPage";
 import FavoritesPage from "@/pages/FavoritesPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
+
+// Initialize theme immediately on app start
+initializeTheme();
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { credentials, isGuest } = useAuthStore();
@@ -20,15 +23,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppContent() {
-  const { darkMode } = useSettingsStore();
+  const { themeMode } = useSettingsStore();
 
+  // Re-initialize theme when themeMode changes
   useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
+    initializeTheme();
+  }, [themeMode]);
 
 
   return (
