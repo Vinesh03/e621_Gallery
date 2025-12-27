@@ -336,22 +336,22 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Header with user greeting and view mode toggle */}
+        {/* Header with user greeting and view mode toggle - Fixed */}
         <div 
-          className="absolute top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
-          style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
+          className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
-          <div className="px-4 py-3">
-            {/* User greeting - fixed height to prevent layout shift */}
+          <div className="px-4 py-2">
+            {/* User greeting - minimal height */}
             {displayName && (
-              <div className="flex items-center justify-end mb-2 h-[24px]">
+              <div className="flex items-center justify-end h-[20px]">
                 <span className="text-sm text-muted-foreground">
                   Ciao, <span className="text-primary font-medium">{displayName}</span>
                 </span>
               </div>
             )}
             {/* View mode toggle */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-1">
               <button
                 onClick={handleExitToGallery}
                 className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
@@ -383,22 +383,22 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Header with user greeting and view mode toggle */}
+        {/* Header with user greeting and view mode toggle - Fixed */}
         <div 
-          className="absolute top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
-          style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
+          className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
-          <div className="px-4 py-3">
-            {/* User greeting - fixed height to prevent layout shift */}
+          <div className="px-4 py-2">
+            {/* User greeting - minimal height */}
             {displayName && (
-              <div className="flex items-center justify-end mb-2 h-[24px]">
+              <div className="flex items-center justify-end h-[20px]">
                 <span className="text-sm text-muted-foreground">
                   Ciao, <span className="text-primary font-medium">{displayName}</span>
                 </span>
               </div>
             )}
             {/* View mode toggle */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-1">
               <button
                 onClick={handleExitToGallery}
                 className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
@@ -435,22 +435,22 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Header with user greeting and view mode toggle */}
+        {/* Header with user greeting and view mode toggle - Fixed */}
         <div 
-          className="absolute top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
-          style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
+          className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
-          <div className="px-4 py-3">
-            {/* User greeting - fixed height to prevent layout shift */}
+          <div className="px-4 py-2">
+            {/* User greeting - minimal height */}
             {displayName && (
-              <div className="flex items-center justify-end mb-2 h-[24px]">
+              <div className="flex items-center justify-end h-[20px]">
                 <span className="text-sm text-muted-foreground">
                   Ciao, <span className="text-primary font-medium">{displayName}</span>
                 </span>
               </div>
             )}
             {/* View mode toggle */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-1">
               <button
                 onClick={handleExitToGallery}
                 className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
