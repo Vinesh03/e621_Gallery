@@ -60,7 +60,7 @@ interface CachedPosts {
   timestamp: number;
 }
 
-interface SavedSearch {
+export interface SavedSearch {
   id: string;
   tags: string;
   name: string;
@@ -82,6 +82,7 @@ interface SearchState {
   addSavedSearch: (tags: string, name?: string) => void;
   removeSavedSearch: (id: string) => void;
   renameSavedSearch: (id: string, newName: string) => void;
+  updateSavedSearchTags: (id: string, newTags: string) => void;
 }
 
 // Store for tracking user's interactions with posts (votes, favorites)
@@ -411,6 +412,12 @@ export const useSearchStore = create<SearchState>()(
       renameSavedSearch: (id, newName) => set((state) => ({
         savedSearches: state.savedSearches.map(s => 
           s.id === id ? { ...s, name: newName } : s
+        )
+      })),
+
+      updateSavedSearchTags: (id, newTags) => set((state) => ({
+        savedSearches: state.savedSearches.map(s => 
+          s.id === id ? { ...s, tags: newTags } : s
         )
       })),
     }),

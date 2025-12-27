@@ -1,7 +1,7 @@
-import { useSettingsStore, useAuthStore, useSearchStore } from '@/stores/appStore';
+import { useSettingsStore, useAuthStore, useSearchStore, SavedSearch } from '@/stores/appStore';
 import { RatingFilter, MediaFilter } from '@/types/e621';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { SlidersHorizontal, LogOut, Image, Film, Layers, ChevronDown, ChevronUp, Bookmark, Plus, X, Edit2, Check } from 'lucide-react';
+import { SlidersHorizontal, LogOut, Image, Film, Layers, ChevronDown, ChevronUp, Bookmark, Plus, X, Edit2, Check, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { ThemeCustomizer } from './ThemeCustomizer';
@@ -20,7 +20,7 @@ interface FilterSheetProps {
 export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   const { ratingFilter, setRatingFilter, mediaFilter, setMediaFilter } = useSettingsStore();
   const { logout, credentials, isGuest } = useAuthStore();
-  const { currentTags, setCurrentTags, savedSearches, addSavedSearch, removeSavedSearch, renameSavedSearch } = useSearchStore();
+  const { currentTags, setCurrentTags, savedSearches, addSavedSearch, removeSavedSearch, renameSavedSearch, updateSavedSearchTags } = useSearchStore();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -55,9 +55,19 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
     toast.success(t('saved.added'));
   };
 
-  const handleLoadSearch = (tags: string) => {
-    setCurrentTags(tags);
+  const handleLoadSearch = (search: SavedSearch) => {
+    // Import saved search tags to search bar
+    setCurrentTags(search.tags);
     onOpenChange?.(false);
+  };
+
+  const handleOverwriteSearch = (id: string) => {
+    if (!currentTags.trim()) {
+      toast.error(t('saved.empty'));
+      return;
+    }
+    updateSavedSearchTags(id, currentTags);
+    toast.success(t('saved.overwritten'));
   };
 
   const handleStartEdit = (id: string, currentName: string) => {
@@ -201,7 +211,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
                         ) : (
                           <>
                             <button
-                              onClick={() => handleLoadSearch(search.tags)}
+                              onClick={() => handleLoadSearch(search)}
                               className="flex-1 text-left"
                             >
                               <div className="font-medium text-sm truncate">
@@ -213,6 +223,16 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
                                 </div>
                               )}
                             </button>
+                            {/* Overwrite button - only show if current tags exist and differ */}
+                            {currentTags.trim() && currentTags !== search.tags && (
+                              <button
+                                onClick={() => handleOverwriteSearch(search.id)}
+                                className="p-1 hover:bg-accent/20 rounded"
+                                title={t('saved.overwrite')}
+                              >
+                                <RefreshCw className="w-3 h-3 text-accent" />
+                              </button>
+                            )}
                             <button
                               onClick={() => handleStartEdit(search.id, search.name || search.tags)}
                               className="p-1 hover:bg-primary/20 rounded"
