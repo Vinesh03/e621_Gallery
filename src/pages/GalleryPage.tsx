@@ -375,7 +375,10 @@ export default function GalleryPage() {
           {/* View mode toggle */}
           <div className="flex items-center gap-2 mt-1 mb-2">
             <button
-              onClick={() => setViewMode('gallery')}
+              onClick={() => {
+                setViewMode('gallery');
+                setCurrentTags(''); // Reset tags when clicking Gallery
+              }}
               className={cn(
                 "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors",
                 viewMode === 'gallery'

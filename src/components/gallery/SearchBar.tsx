@@ -20,11 +20,16 @@ const tagCategoryColors: Record<number, string> = {
 };
 
 export function SearchBar({ onSearch }: SearchBarProps) {
-  const [value, setValue] = useState('');
+  const { searchHistory, addToHistory, clearHistory, currentTags } = useSearchStore();
+  const [value, setValue] = useState(currentTags);
   const [isFocused, setIsFocused] = useState(false);
   const [suggestions, setSuggestions] = useState<E621Tag[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-  const { searchHistory, addToHistory, clearHistory } = useSearchStore();
+
+  // Sync local value with store currentTags when it changes externally
+  useEffect(() => {
+    setValue(currentTags);
+  }, [currentTags]);
 
   // Debounced tag search
   const searchTags = useCallback(async (query: string) => {
