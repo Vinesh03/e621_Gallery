@@ -1,31 +1,15 @@
 import { useSettingsStore, useAuthStore } from '@/stores/appStore';
 import { RatingFilter, MediaFilter } from '@/types/e621';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { SlidersHorizontal, Moon, Sun, Monitor, LogOut, Image, Film, Layers } from 'lucide-react';
+import { SlidersHorizontal, Moon, Sun, Monitor, LogOut, Image, Film, Layers, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { ThemeCustomizer } from './ThemeCustomizer';
-
-const ratingOptions: { value: RatingFilter; label: string; description: string }[] = [
-  { value: 's', label: 'Solo Safe', description: 'Mostra solo contenuti safe' },
-  { value: 'sq', label: 'Safe + Questionable', description: 'Contenuti safe e questionable' },
-  { value: 'sqe', label: 'Tutti i rating', description: 'Mostra tutti i contenuti' },
-  { value: 'e', label: 'Solo Explicit', description: 'Mostra solo contenuti explicit' },
-];
-
-const mediaOptions: { value: MediaFilter; label: string; icon: typeof Image }[] = [
-  { value: 'all', label: 'Tutti', icon: Layers },
-  { value: 'image', label: 'Solo Immagini', icon: Image },
-  { value: 'video', label: 'Solo Video', icon: Film },
-];
+import { AdvancedSettings } from './AdvancedSettings';
+import { useLanguage } from '@/hooks/use-language';
+import { useState } from 'react';
 
 type ThemeMode = 'dark' | 'light' | 'system';
-
-const themeModeOptions: { value: ThemeMode; label: string; icon: typeof Moon }[] = [
-  { value: 'dark', label: 'Scuro', icon: Moon },
-  { value: 'light', label: 'Chiaro', icon: Sun },
-  { value: 'system', label: 'Sistema', icon: Monitor },
-];
 
 interface FilterSheetProps {
   isOpen?: boolean;
@@ -35,7 +19,28 @@ interface FilterSheetProps {
 export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   const { ratingFilter, setRatingFilter, mediaFilter, setMediaFilter, themeMode, setThemeMode } = useSettingsStore();
   const { logout, credentials, isGuest } = useAuthStore();
+  const { t } = useLanguage();
   const navigate = useNavigate();
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  const ratingOptions: { value: RatingFilter; label: string; description: string }[] = [
+    { value: 's', label: t('filter.rating.safe'), description: t('filter.rating.safe.desc') },
+    { value: 'sq', label: t('filter.rating.sq'), description: t('filter.rating.sq.desc') },
+    { value: 'sqe', label: t('filter.rating.all'), description: t('filter.rating.all.desc') },
+    { value: 'e', label: t('filter.rating.explicit'), description: t('filter.rating.explicit.desc') },
+  ];
+
+  const mediaOptions: { value: MediaFilter; label: string; icon: typeof Image }[] = [
+    { value: 'all', label: t('filter.media.all'), icon: Layers },
+    { value: 'image', label: t('filter.media.image'), icon: Image },
+    { value: 'video', label: t('filter.media.video'), icon: Film },
+  ];
+
+  const themeModeOptions: { value: ThemeMode; label: string; icon: typeof Moon }[] = [
+    { value: 'dark', label: t('theme.dark'), icon: Moon },
+    { value: 'light', label: t('theme.light'), icon: Sun },
+    { value: 'system', label: t('theme.system'), icon: Monitor },
+  ];
 
   const handleLogout = () => {
     logout();
@@ -53,13 +58,13 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
       )}
       <SheetContent className="bg-background border-border overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Filtri & Impostazioni</SheetTitle>
+          <SheetTitle>{t('filter.title')}</SheetTitle>
         </SheetHeader>
         
         <div className="mt-6 space-y-6">
           {/* Rating filter */}
           <div className="space-y-3">
-            <h3 className="font-medium text-sm">Rating Contenuti</h3>
+            <h3 className="font-medium text-sm">{t('filter.rating')}</h3>
             <div className="space-y-2">
               {ratingOptions.map((option) => (
                 <button
@@ -88,7 +93,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
 
           {/* Media type filter */}
           <div className="space-y-3">
-            <h3 className="font-medium text-sm">Tipo Media</h3>
+            <h3 className="font-medium text-sm">{t('filter.media')}</h3>
             <div className="grid grid-cols-3 gap-2">
               {mediaOptions.map((option) => {
                 const Icon = option.icon;
@@ -113,13 +118,13 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
 
           {/* Theme customizer */}
           <div className="space-y-3">
-            <h3 className="font-medium text-sm">Colore Tema</h3>
+            <h3 className="font-medium text-sm">{t('theme.color')}</h3>
             <ThemeCustomizer />
           </div>
 
           {/* Theme mode selector */}
           <div className="space-y-3">
-            <h3 className="font-medium text-sm">Modalità Tema</h3>
+            <h3 className="font-medium text-sm">{t('theme.mode')}</h3>
             <div className="grid grid-cols-3 gap-2">
               {themeModeOptions.map((option) => {
                 const Icon = option.icon;
@@ -142,6 +147,17 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
             </div>
           </div>
 
+          {/* Advanced settings toggle */}
+          <button
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="w-full p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors flex items-center justify-between"
+          >
+            <span className="font-medium text-sm">{t('settings.advanced')}</span>
+            {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+          
+          {showAdvanced && <AdvancedSettings />}
+
           {/* Logout button */}
           {(credentials || isGuest) && (
             <button
@@ -149,7 +165,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
               className="w-full p-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2"
             >
               <LogOut className="w-4 h-4" />
-              <span className="font-medium text-sm">Logout</span>
+              <span className="font-medium text-sm">{isGuest ? t('action.login') : t('action.logout')}</span>
             </button>
           )}
         </div>

@@ -277,9 +277,15 @@ export function PostViewer({
         handleClose();
       }
     }
-    // Swipe LEFT = open filters (negative X offset)
-    if (info.offset.x < -80 && Math.abs(info.offset.y) < 50) {
-      setShowFiltersSheet(true);
+    // Horizontal swipe for navigation between posts
+    if (Math.abs(info.offset.x) > 80 && Math.abs(info.offset.y) < 50) {
+      if (info.offset.x < 0 && hasNext && onNext) {
+        // Swipe LEFT = next post
+        onNext();
+      } else if (info.offset.x > 0 && hasPrevious && onPrevious) {
+        // Swipe RIGHT = previous post
+        onPrevious();
+      }
     }
   };
 
