@@ -2,9 +2,13 @@ import { useState, useEffect } from 'react';
 import { useSettingsStore, useSearchStore } from '@/stores/appStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { HardDrive, Trash2 } from 'lucide-react';
+import { HardDrive, Trash2, Moon, Sun, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
+import { ThemeCustomizer } from './ThemeCustomizer';
+import { cn } from '@/lib/utils';
+
+type ThemeMode = 'dark' | 'light' | 'system';
 
 function parseStorageInput(input: string): number | null {
   const trimmed = input.trim().toLowerCase();
@@ -32,12 +36,18 @@ function formatStorageSize(mb: number): string {
 }
 
 export function AdvancedSettings() {
-  const { storageLimitMB, setStorageLimitMB } = useSettingsStore();
+  const { storageLimitMB, setStorageLimitMB, themeMode, setThemeMode } = useSettingsStore();
   const { clearCache } = useSearchStore();
   const { t } = useLanguage();
   
   const [storageInput, setStorageInput] = useState(formatStorageSize(storageLimitMB));
   const [estimatedUsage, setEstimatedUsage] = useState<number>(0);
+
+  const themeModeOptions: { value: ThemeMode; label: string; icon: typeof Moon }[] = [
+    { value: 'dark', label: t('theme.dark'), icon: Moon },
+    { value: 'light', label: t('theme.light'), icon: Sun },
+    { value: 'system', label: t('theme.system'), icon: Monitor },
+  ];
 
   // Estimate storage usage
   useEffect(() => {
@@ -99,7 +109,36 @@ export function AdvancedSettings() {
 
   return (
     <div className="space-y-4">
-      <h3 className="font-medium text-sm">{t('settings.advanced')}</h3>
+      {/* Theme color */}
+      <div className="space-y-2">
+        <h4 className="font-medium text-sm">{t('theme.color')}</h4>
+        <ThemeCustomizer />
+      </div>
+
+      {/* Theme mode selector */}
+      <div className="space-y-2">
+        <h4 className="font-medium text-sm">{t('theme.mode')}</h4>
+        <div className="grid grid-cols-3 gap-2">
+          {themeModeOptions.map((option) => {
+            const Icon = option.icon;
+            return (
+              <button
+                key={option.value}
+                onClick={() => setThemeMode(option.value)}
+                className={cn(
+                  "p-3 rounded-lg flex flex-col items-center gap-2 transition-colors",
+                  themeMode === option.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary hover:bg-secondary/80"
+                )}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-xs font-medium">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
       
       {/* Storage limit */}
       <div className="space-y-2">

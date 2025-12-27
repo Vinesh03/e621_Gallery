@@ -60,10 +60,18 @@ interface CachedPosts {
   timestamp: number;
 }
 
+interface SavedSearch {
+  id: string;
+  tags: string;
+  name: string;
+  createdAt: number;
+}
+
 interface SearchState {
   currentTags: string;
   searchHistory: string[];
   cachedPosts: CachedPosts | null;
+  savedSearches: SavedSearch[];
   
   setCurrentTags: (tags: string) => void;
   addToHistory: (tags: string) => void;
@@ -71,6 +79,9 @@ interface SearchState {
   setCachedPosts: (posts: any[], tags: string, ratingFilter: string, mediaFilter: string) => void;
   getCachedPosts: (tags: string, ratingFilter: string, mediaFilter: string) => any[] | null;
   clearCache: () => void;
+  addSavedSearch: (tags: string, name?: string) => void;
+  removeSavedSearch: (id: string) => void;
+  renameSavedSearch: (id: string, newName: string) => void;
 }
 
 // Store for tracking user's interactions with posts (votes, favorites)
@@ -334,6 +345,7 @@ export const useSearchStore = create<SearchState>()(
       currentTags: '',
       searchHistory: [],
       cachedPosts: null,
+      savedSearches: [],
 
       setCurrentTags: (tags) => set({ currentTags: tags }),
       
@@ -375,6 +387,32 @@ export const useSearchStore = create<SearchState>()(
       },
 
       clearCache: () => set({ cachedPosts: null }),
+
+      addSavedSearch: (tags, name) => set((state) => {
+        // Check if already exists
+        if (state.savedSearches.some(s => s.tags === tags)) {
+          return state;
+        }
+        const newSearch: SavedSearch = {
+          id: Date.now().toString(),
+          tags,
+          name: name || '',
+          createdAt: Date.now(),
+        };
+        return {
+          savedSearches: [newSearch, ...state.savedSearches].slice(0, 20)
+        };
+      }),
+
+      removeSavedSearch: (id) => set((state) => ({
+        savedSearches: state.savedSearches.filter(s => s.id !== id)
+      })),
+
+      renameSavedSearch: (id, newName) => set((state) => ({
+        savedSearches: state.savedSearches.map(s => 
+          s.id === id ? { ...s, name: newName } : s
+        )
+      })),
     }),
     {
       name: 'e6-search',
@@ -382,6 +420,7 @@ export const useSearchStore = create<SearchState>()(
         currentTags: state.currentTags,
         searchHistory: state.searchHistory,
         cachedPosts: state.cachedPosts,
+        savedSearches: state.savedSearches,
       }),
     }
   )

@@ -1,15 +1,16 @@
-import { useSettingsStore, useAuthStore } from '@/stores/appStore';
+import { useSettingsStore, useAuthStore, useSearchStore } from '@/stores/appStore';
 import { RatingFilter, MediaFilter } from '@/types/e621';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { SlidersHorizontal, Moon, Sun, Monitor, LogOut, Image, Film, Layers, ChevronDown, ChevronUp } from 'lucide-react';
+import { SlidersHorizontal, LogOut, Image, Film, Layers, ChevronDown, ChevronUp, Bookmark, Plus, X, Edit2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { ThemeCustomizer } from './ThemeCustomizer';
 import { AdvancedSettings } from './AdvancedSettings';
 import { useLanguage } from '@/hooks/use-language';
 import { useState } from 'react';
-
-type ThemeMode = 'dark' | 'light' | 'system';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface FilterSheetProps {
   isOpen?: boolean;
@@ -17,11 +18,15 @@ interface FilterSheetProps {
 }
 
 export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
-  const { ratingFilter, setRatingFilter, mediaFilter, setMediaFilter, themeMode, setThemeMode } = useSettingsStore();
+  const { ratingFilter, setRatingFilter, mediaFilter, setMediaFilter } = useSettingsStore();
   const { logout, credentials, isGuest } = useAuthStore();
+  const { currentTags, setCurrentTags, savedSearches, addSavedSearch, removeSavedSearch, renameSavedSearch } = useSearchStore();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showSavedSearches, setShowSavedSearches] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
 
   const ratingOptions: { value: RatingFilter; label: string; description: string }[] = [
     { value: 's', label: t('filter.rating.safe'), description: t('filter.rating.safe.desc') },
@@ -36,15 +41,37 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
     { value: 'video', label: t('filter.media.video'), icon: Film },
   ];
 
-  const themeModeOptions: { value: ThemeMode; label: string; icon: typeof Moon }[] = [
-    { value: 'dark', label: t('theme.dark'), icon: Moon },
-    { value: 'light', label: t('theme.light'), icon: Sun },
-    { value: 'system', label: t('theme.system'), icon: Monitor },
-  ];
-
   const handleLogout = () => {
     logout();
     navigate('/');
+  };
+
+  const handleSaveCurrentSearch = () => {
+    if (!currentTags.trim()) {
+      toast.error(t('saved.empty'));
+      return;
+    }
+    addSavedSearch(currentTags);
+    toast.success(t('saved.added'));
+  };
+
+  const handleLoadSearch = (tags: string) => {
+    setCurrentTags(tags);
+    onOpenChange?.(false);
+  };
+
+  const handleStartEdit = (id: string, currentName: string) => {
+    setEditingId(id);
+    setEditName(currentName);
+  };
+
+  const handleSaveEdit = (id: string) => {
+    if (editName.trim()) {
+      renameSavedSearch(id, editName.trim());
+      toast.success(t('saved.renamed'));
+    }
+    setEditingId(null);
+    setEditName('');
   };
 
   return (
@@ -116,35 +143,99 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
             </div>
           </div>
 
-          {/* Theme customizer */}
+          {/* Saved searches section */}
           <div className="space-y-3">
-            <h3 className="font-medium text-sm">{t('theme.color')}</h3>
-            <ThemeCustomizer />
-          </div>
-
-          {/* Theme mode selector */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-sm">{t('theme.mode')}</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {themeModeOptions.map((option) => {
-                const Icon = option.icon;
-                return (
-                  <button
-                    key={option.value}
-                    onClick={() => setThemeMode(option.value)}
-                    className={cn(
-                      "p-3 rounded-lg flex flex-col items-center gap-2 transition-colors",
-                      themeMode === option.value
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary hover:bg-secondary/80"
-                    )}
+            <button
+              onClick={() => setShowSavedSearches(!showSavedSearches)}
+              className="w-full p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Bookmark className="w-4 h-4" />
+                <span className="font-medium text-sm">{t('saved.title')}</span>
+              </div>
+              {showSavedSearches ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            
+            {showSavedSearches && (
+              <div className="space-y-2">
+                {/* Save current search button */}
+                {currentTags.trim() && (
+                  <Button
+                    variant="outline"
+                    onClick={handleSaveCurrentSearch}
+                    className="w-full flex items-center gap-2"
                   >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-xs font-medium">{option.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+                    <Plus className="w-4 h-4" />
+                    {t('saved.save')}
+                  </Button>
+                )}
+                
+                {/* List of saved searches */}
+                {savedSearches.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2">
+                    {t('saved.empty.list')}
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {savedSearches.map((search) => (
+                      <div
+                        key={search.id}
+                        className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50"
+                      >
+                        {editingId === search.id ? (
+                          <>
+                            <Input
+                              value={editName}
+                              onChange={(e) => setEditName(e.target.value)}
+                              className="flex-1 h-8 text-sm"
+                              onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(search.id)}
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleSaveEdit(search.id)}
+                              className="p-1 hover:bg-primary/20 rounded"
+                            >
+                              <Check className="w-4 h-4 text-primary" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleLoadSearch(search.tags)}
+                              className="flex-1 text-left"
+                            >
+                              <div className="font-medium text-sm truncate">
+                                {search.name || search.tags}
+                              </div>
+                              {search.name && (
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {search.tags}
+                                </div>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleStartEdit(search.id, search.name || search.tags)}
+                              className="p-1 hover:bg-primary/20 rounded"
+                            >
+                              <Edit2 className="w-3 h-3 text-muted-foreground" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                removeSavedSearch(search.id);
+                                toast.success(t('saved.removed'));
+                              }}
+                              className="p-1 hover:bg-destructive/20 rounded"
+                            >
+                              <X className="w-3 h-3 text-destructive" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Advanced settings toggle */}

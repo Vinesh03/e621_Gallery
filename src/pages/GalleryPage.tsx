@@ -361,19 +361,19 @@ export default function GalleryPage() {
           />
         </div>
       )}
-      {/* Header */}
+      {/* Header - Fixed position to prevent movement */}
       <header
-        className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border overflow-hidden"
-        style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
+        className="fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        <div className="container py-3">
-          {/* User menu - fixed height container to prevent layout shift */}
-          <div className="flex items-center justify-end mb-2 h-[24px]">
+        <div className="container py-2">
+          {/* User menu - minimal spacing */}
+          <div className="flex items-center justify-end h-[20px]">
             <UserMenu />
           </div>
           
           {/* View mode toggle */}
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mt-1 mb-2">
             <button
               onClick={() => setViewMode('gallery')}
               className={cn(
@@ -408,6 +408,9 @@ export default function GalleryPage() {
           </div>
         </div>
       </header>
+      
+      {/* Spacer for fixed header */}
+      <div style={{ height: 'calc(env(safe-area-inset-top, 0px) + 130px)' }} />
 
       {/* Content */}
       {connectionError ? (
