@@ -46,11 +46,14 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   const videoRefs = useRef<Map<number, HTMLVideoElement>>(new Map());
   const preloadedUrls = useRef<Set<string>>(new Set());
   
-  const { isGuest, logout } = useAuthStore();
+  const { isGuest, logout, credentials } = useAuthStore();
   const { viewMode, setViewMode } = useSettingsStore();
   const { setCurrentTags } = useSearchStore();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  
+  // Display name for greeting
+  const displayName = credentials?.username || (isGuest ? 'Ospite' : null);
 
   // Sync local posts with prop
   useEffect(() => {
@@ -333,21 +336,37 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* View mode toggle - same as GalleryPage */}
-        <div className="absolute top-4 left-4 right-4 z-50 flex items-center gap-2">
-          <button
-            onClick={handleExitToGallery}
-            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span className="font-medium text-sm">Galleria</span>
-          </button>
-          <button
-            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-primary text-primary-foreground"
-          >
-            <Play className="w-4 h-4" />
-            <span className="font-medium text-sm">Shorts</span>
-          </button>
+        {/* Header with user greeting and view mode toggle */}
+        <div 
+          className="absolute top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
+          style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
+        >
+          <div className="px-4 py-3">
+            {/* User greeting */}
+            {displayName && (
+              <div className="flex items-center justify-end mb-2 min-h-[24px]">
+                <span className="text-sm text-muted-foreground">
+                  Ciao, <span className="text-primary font-medium">{displayName}</span>
+                </span>
+              </div>
+            )}
+            {/* View mode toggle */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExitToGallery}
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
+              >
+                <LayoutGrid className="w-4 h-4" />
+                <span className="font-medium text-sm">Galleria</span>
+              </button>
+              <button
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-primary text-primary-foreground"
+              >
+                <Play className="w-4 h-4" />
+                <span className="font-medium text-sm">Shorts</span>
+              </button>
+            </div>
+          </div>
         </div>
         <div className="text-center flex flex-col items-center gap-4">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -364,21 +383,37 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* View mode toggle - same as GalleryPage */}
-        <div className="absolute top-4 left-4 right-4 z-50 flex items-center gap-2">
-          <button
-            onClick={handleExitToGallery}
-            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span className="font-medium text-sm">Galleria</span>
-          </button>
-          <button
-            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-primary text-primary-foreground"
-          >
-            <Play className="w-4 h-4" />
-            <span className="font-medium text-sm">Shorts</span>
-          </button>
+        {/* Header with user greeting and view mode toggle */}
+        <div 
+          className="absolute top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
+          style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
+        >
+          <div className="px-4 py-3">
+            {/* User greeting */}
+            {displayName && (
+              <div className="flex items-center justify-end mb-2 min-h-[24px]">
+                <span className="text-sm text-muted-foreground">
+                  Ciao, <span className="text-primary font-medium">{displayName}</span>
+                </span>
+              </div>
+            )}
+            {/* View mode toggle */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExitToGallery}
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
+              >
+                <LayoutGrid className="w-4 h-4" />
+                <span className="font-medium text-sm">Galleria</span>
+              </button>
+              <button
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-primary text-primary-foreground"
+              >
+                <Play className="w-4 h-4" />
+                <span className="font-medium text-sm">Shorts</span>
+              </button>
+            </div>
+          </div>
         </div>
         <div className="text-center">
           <p className="text-muted-foreground">Nessun video trovato</p>
@@ -400,25 +435,37 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* View mode toggle - same as GalleryPage */}
-        <div className="absolute top-4 left-4 right-4 z-50 flex items-center gap-2">
-          <button
-            onClick={handleExitToGallery}
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
+        {/* Header with user greeting and view mode toggle */}
+        <div 
+          className="absolute top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm"
+          style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
+        >
+          <div className="px-4 py-3">
+            {/* User greeting */}
+            {displayName && (
+              <div className="flex items-center justify-end mb-2 min-h-[24px]">
+                <span className="text-sm text-muted-foreground">
+                  Ciao, <span className="text-primary font-medium">{displayName}</span>
+                </span>
+              </div>
             )}
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span className="font-medium text-sm">Galleria</span>
-          </button>
-          <button
-            className={cn(
-              "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-primary text-primary-foreground"
-            )}
-          >
-            <Play className="w-4 h-4" />
-            <span className="font-medium text-sm">Shorts</span>
-          </button>
+            {/* View mode toggle */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExitToGallery}
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-secondary hover:bg-secondary/80"
+              >
+                <LayoutGrid className="w-4 h-4" />
+                <span className="font-medium text-sm">Galleria</span>
+              </button>
+              <button
+                className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors bg-primary text-primary-foreground"
+              >
+                <Play className="w-4 h-4" />
+                <span className="font-medium text-sm">Shorts</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Navigation buttons - only show on desktop */}

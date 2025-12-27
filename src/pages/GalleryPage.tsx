@@ -11,7 +11,7 @@ import { SplashScreen } from '@/components/SplashScreen';
 import { ConnectionError } from '@/components/ConnectionError';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { LayoutGrid, Play } from 'lucide-react';
+import { LayoutGrid, Play, RefreshCw } from 'lucide-react';
 import { UserMenu } from '@/components/gallery/UserMenu';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -27,6 +27,7 @@ export default function GalleryPage() {
   const [shortsPosts, setShortsPosts] = useState<E621Post[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isShortsLoading, setIsShortsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [shortsPage, setShortsPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -35,6 +36,11 @@ export default function GalleryPage() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const [connectionError, setConnectionError] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  
+  // Pull-to-refresh state
+  const [pullDistance, setPullDistance] = useState(0);
+  const pullStartY = useRef<number>(0);
+  const isPulling = useRef(false);
   
   // Swipe handling for view mode switching
   const touchStartX = useRef<number>(0);
@@ -70,15 +76,17 @@ export default function GalleryPage() {
     }
   }, [credentials, isFirstLogin, setNotFirstLogin]);
 
-  const fetchPosts = useCallback(async (searchTags: string, pageNum: number, append = false, skipCache = false) => {
-    // Try to load from cache for first page
-    if (pageNum === 1 && !append && !skipCache) {
+  const fetchPosts = useCallback(async (searchTags: string, pageNum: number, append = false, isInitialLoad = false) => {
+    // On initial load, always try cache first
+    if (pageNum === 1 && !append) {
       const cachedPosts = getCachedPosts(searchTags, ratingFilter, mediaFilter);
       if (cachedPosts && cachedPosts.length > 0) {
         setPosts(cachedPosts);
         setHasMore(cachedPosts.length === 40);
-        // Fetch in background to check for new posts
-        fetchPostsInBackground(searchTags);
+        // Only background refresh on initial load, not during active usage
+        if (isInitialLoad) {
+          fetchPostsInBackground(searchTags);
+        }
         return;
       }
     }
@@ -171,14 +179,18 @@ export default function GalleryPage() {
     }
   }, [ratingFilter]);
 
+  // Track if this is first render
+  const isFirstRenderRef = useRef(true);
+  
   useEffect(() => {
     if (viewMode === 'gallery') {
       setPage(1);
-      fetchPosts(currentTags, 1, false);
+      fetchPosts(currentTags, 1, false, isFirstRenderRef.current);
     } else {
       setShortsPage(1);
       fetchShortsPosts(currentTags, 1, false);
     }
+    isFirstRenderRef.current = false;
   }, [currentTags, ratingFilter, mediaFilter, viewMode, fetchPosts, fetchShortsPosts]);
 
   const handleSearch = (tags: string) => {
@@ -237,10 +249,65 @@ export default function GalleryPage() {
 
   const displayName = credentials?.username || (isGuest ? 'Ospite' : null);
 
+  // Pull-to-refresh handlers
+  const PULL_THRESHOLD = 80;
+  
+  const handlePullStart = (e: React.TouchEvent) => {
+    // Only start pull if at top of scroll
+    if (contentRef.current && contentRef.current.scrollTop === 0) {
+      pullStartY.current = e.touches[0].clientY;
+      isPulling.current = true;
+    }
+  };
+
+  const handlePullMove = (e: React.TouchEvent) => {
+    if (!isPulling.current) return;
+    
+    const currentY = e.touches[0].clientY;
+    const distance = currentY - pullStartY.current;
+    
+    if (distance > 0) {
+      setPullDistance(Math.min(distance * 0.5, 100));
+    }
+  };
+
+  const handlePullEnd = async () => {
+    if (pullDistance > PULL_THRESHOLD && !isRefreshing) {
+      setIsRefreshing(true);
+      setPullDistance(60);
+      
+      try {
+        const newPosts = await e621Api.searchPosts({
+          tags: currentTags,
+          limit: 40,
+          page: 1,
+          rating: ratingFilter,
+          mediaType: mediaFilter,
+        });
+        setPosts(newPosts);
+        setCachedPosts(newPosts, currentTags, ratingFilter, mediaFilter);
+        setHasMore(newPosts.length === 40);
+        toast.success('Galleria aggiornata');
+      } catch (error) {
+        toast.error('Errore durante l\'aggiornamento');
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
+    
+    setPullDistance(0);
+    isPulling.current = false;
+  };
+
   // Handle swipe to change view mode
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
+    handlePullStart(e);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    handlePullMove(e);
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -248,6 +315,12 @@ export default function GalleryPage() {
     const touchEndY = e.changedTouches[0].clientY;
     const diffX = touchStartX.current - touchEndX;
     const diffY = touchStartY.current - touchEndY;
+    
+    // Handle pull-to-refresh first
+    if (isPulling.current && pullDistance > 0) {
+      handlePullEnd();
+      return;
+    }
     
     // Only trigger if horizontal swipe is dominant and significant
     if (Math.abs(diffX) > 80 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
@@ -270,15 +343,32 @@ export default function GalleryPage() {
         ref={contentRef}
         className="min-h-screen bg-background"
         onTouchStart={viewMode === 'gallery' ? handleTouchStart : undefined}
+        onTouchMove={viewMode === 'gallery' ? handleTouchMove : undefined}
         onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}
       >
+      {/* Pull-to-refresh indicator */}
+      {pullDistance > 0 && viewMode === 'gallery' && (
+        <div 
+          className="absolute top-0 left-0 right-0 flex items-center justify-center bg-background z-50 transition-all"
+          style={{ height: pullDistance, paddingTop: 'max(env(safe-area-inset-top), 12px)' }}
+        >
+          <RefreshCw 
+            className={cn(
+              "w-6 h-6 text-primary transition-transform",
+              isRefreshing && "animate-spin",
+              pullDistance > 80 && "scale-110"
+            )} 
+          />
+        </div>
+      )}
       {/* Header */}
       <header
         className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border"
+        style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}
       >
-        <div className="container py-3" style={{ paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 12px))' }}>
-          {/* User menu */}
-          <div className="flex items-center justify-end mb-2">
+        <div className="container py-3">
+          {/* User menu - fixed height to prevent layout shift */}
+          <div className="flex items-center justify-end mb-2 min-h-[24px]">
             <UserMenu />
           </div>
           
