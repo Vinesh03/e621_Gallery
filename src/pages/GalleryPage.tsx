@@ -305,6 +305,9 @@ export default function GalleryPage() {
   const PULL_THRESHOLD = 80;
   
   const handlePullStart = (e: React.TouchEvent) => {
+    // Do not start pull-to-refresh when a post viewer is open
+    if (selectedPost) return;
+
     // Only start pull if at top of scroll
     if (contentRef.current && contentRef.current.scrollTop === 0) {
       pullStartY.current = e.touches[0].clientY;
@@ -355,7 +358,8 @@ export default function GalleryPage() {
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
-    handlePullStart(e);
+    // Prevent pull-to-refresh gestures when viewer is open
+    if (!selectedPost) handlePullStart(e);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {

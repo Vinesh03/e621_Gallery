@@ -355,6 +355,10 @@ export function PostViewer({
           <DialogContent 
             hideCloseButton 
             className="max-w-full w-full h-[100dvh] p-0 gap-0 bg-background border-none rounded-none"
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
             style={{
               paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 0px))',
               paddingBottom: 'max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px))',
@@ -721,7 +725,12 @@ export function PostViewer({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] p-0 gap-0 bg-background/95 backdrop-blur-lg border-border overflow-hidden">
+        <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] p-0 gap-0 bg-background/95 backdrop-blur-lg border-border overflow-hidden"
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchMove={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           <DialogTitle className="sr-only">Visualizzatore post {localPost.id}</DialogTitle>
           <DialogTitle className="sr-only">Visualizzatore post {localPost.id}</DialogTitle>
           <DialogDescription className="sr-only">Visualizzatore post {localPost.id}</DialogDescription>
