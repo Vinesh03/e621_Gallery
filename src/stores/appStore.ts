@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 import { AuthCredentials, RatingFilter, MediaFilter } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
 
@@ -38,7 +38,7 @@ interface SettingsState {
   themeSaturation: number;
   savedMediaFilter: MediaFilter; // Saved filter before switching to shorts
   hasShownInitialSplash: boolean; // Track if splash has been shown this session
-  storageLimitMB: number; // Storage limit in megabytes
+  storageLimitMB: number; // Storage limit in megabytes (GLOBAL, not per-user)
   
   setRatingFilter: (filter: RatingFilter) => void;
   setMediaFilter: (filter: MediaFilter) => void;
@@ -99,6 +99,77 @@ interface UserInteractionsState {
   clearInteractions: () => void;
 }
 
+// Helper function to get current username from auth store
+const getCurrentUsername = (): string => {
+  try {
+    const authData = localStorage.getItem('e6-auth');
+    if (authData) {
+      const parsed = JSON.parse(authData);
+      return parsed.state?.credentials?.username || 'guest';
+    }
+  } catch (e) {
+    // Ignore
+  }
+  return 'guest';
+};
+
+// Create user-specific storage for settings
+const createUserSettingsStorage = (): StateStorage => ({
+  getItem: (name: string): string | null => {
+    const username = getCurrentUsername();
+    const key = `${name}-${username}`;
+    return localStorage.getItem(key);
+  },
+  setItem: (name: string, value: string): void => {
+    const username = getCurrentUsername();
+    const key = `${name}-${username}`;
+    localStorage.setItem(key, value);
+  },
+  removeItem: (name: string): void => {
+    const username = getCurrentUsername();
+    const key = `${name}-${username}`;
+    localStorage.removeItem(key);
+  },
+});
+
+// Create user-specific storage for search data
+const createUserSearchStorage = (): StateStorage => ({
+  getItem: (name: string): string | null => {
+    const username = getCurrentUsername();
+    const key = `${name}-${username}`;
+    return localStorage.getItem(key);
+  },
+  setItem: (name: string, value: string): void => {
+    const username = getCurrentUsername();
+    const key = `${name}-${username}`;
+    localStorage.setItem(key, value);
+  },
+  removeItem: (name: string): void => {
+    const username = getCurrentUsername();
+    const key = `${name}-${username}`;
+    localStorage.removeItem(key);
+  },
+});
+
+// Create user-specific storage for interactions
+const createUserInteractionsStorage = (): StateStorage => ({
+  getItem: (name: string): string | null => {
+    const username = getCurrentUsername();
+    const key = `${name}-${username}`;
+    return localStorage.getItem(key);
+  },
+  setItem: (name: string, value: string): void => {
+    const username = getCurrentUsername();
+    const key = `${name}-${username}`;
+    localStorage.setItem(key, value);
+  },
+  removeItem: (name: string): void => {
+    const username = getCurrentUsername();
+    const key = `${name}-${username}`;
+    localStorage.removeItem(key);
+  },
+});
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -130,6 +201,10 @@ export const useAuthStore = create<AuthState>()(
             isFirstLogin: state.isFirstLogin,
             savedAccounts: newSavedAccounts,
           }));
+          
+          // Reload user-specific stores after login
+          reloadUserStores();
+          
           return true;
         } else {
           e621Api.setCredentials(null);
@@ -162,6 +237,10 @@ export const useAuthStore = create<AuthState>()(
             isGuest: false, 
             isLoading: false,
           });
+          
+          // Reload user-specific stores after login
+          reloadUserStores();
+          
           return true;
         } else {
           e621Api.setCredentials(null);
@@ -183,6 +262,8 @@ export const useAuthStore = create<AuthState>()(
       loginAsGuest: () => {
         e621Api.setCredentials(null);
         set({ credentials: null, isGuest: true, error: null });
+        // Reload user-specific stores for guest
+        reloadUserStores();
       },
 
       logout: () => {
@@ -251,8 +332,9 @@ const setupSystemThemeListener = (mode: ThemeMode) => {
 
 // Initialize theme on app start (before store hydration)
 export const initializeTheme = () => {
-  // Get stored theme mode from localStorage
-  const storedSettings = localStorage.getItem('e6-settings');
+  // Get stored theme mode from localStorage for current user
+  const username = getCurrentUsername();
+  const storedSettings = localStorage.getItem(`e6-settings-${username}`);
   let themeMode: ThemeMode = 'system'; // Default to system
   
   if (storedSettings) {
@@ -268,6 +350,24 @@ export const initializeTheme = () => {
   setupSystemThemeListener(themeMode);
 };
 
+// Global storage limit store (not per-user)
+interface GlobalSettingsState {
+  storageLimitMB: number;
+  setStorageLimitMB: (limit: number) => void;
+}
+
+export const useGlobalSettingsStore = create<GlobalSettingsState>()(
+  persist(
+    (set) => ({
+      storageLimitMB: 500, // Default 500MB
+      setStorageLimitMB: (limit) => set({ storageLimitMB: limit }),
+    }),
+    {
+      name: 'e6-global-settings',
+    }
+  )
+);
+
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
@@ -281,7 +381,7 @@ export const useSettingsStore = create<SettingsState>()(
       themeSaturation: 85,
       savedMediaFilter: 'all',
       hasShownInitialSplash: false,
-      storageLimitMB: 500, // Default 500MB
+      storageLimitMB: 500, // Kept for compatibility but use useGlobalSettingsStore
 
       setRatingFilter: (filter) => set({ ratingFilter: filter }),
       setMediaFilter: (filter) => set({ mediaFilter: filter }),
@@ -296,13 +396,18 @@ export const useSettingsStore = create<SettingsState>()(
       setThemeColor: (hue, saturation) => set({ themeHue: hue, themeSaturation: saturation }),
       setSavedMediaFilter: (filter) => set({ savedMediaFilter: filter }),
       setHasShownInitialSplash: (shown) => set({ hasShownInitialSplash: shown }),
-      setStorageLimitMB: (limit) => set({ storageLimitMB: limit }),
+      setStorageLimitMB: (limit) => {
+        // Also update global settings for cache limit
+        useGlobalSettingsStore.getState().setStorageLimitMB(limit);
+        set({ storageLimitMB: limit });
+      },
     }),
     {
       name: 'e6-settings',
-      version: 5,
+      storage: createJSONStorage(() => createUserSettingsStorage()),
+      version: 6,
       migrate: (persistedState: any, version: number) => {
-        if (version < 5 && persistedState && typeof persistedState === 'object') {
+        if (version < 6 && persistedState && typeof persistedState === 'object') {
           return {
             ...persistedState,
             ratingFilter: persistedState.ratingFilter ?? 'sqe',
@@ -423,6 +528,7 @@ export const useSearchStore = create<SearchState>()(
     }),
     {
       name: 'e6-search',
+      storage: createJSONStorage(() => createUserSearchStorage()),
       partialize: (state) => ({
         currentTags: state.currentTags,
         searchHistory: state.searchHistory,
@@ -433,7 +539,7 @@ export const useSearchStore = create<SearchState>()(
   )
 );
 
-// User interactions store - persisted to remember votes across sessions
+// User interactions store - persisted to remember votes across sessions (per-user)
 export const useUserInteractionsStore = create<UserInteractionsState>()(
   persist(
     (set, get) => ({
@@ -464,7 +570,9 @@ export const useUserInteractionsStore = create<UserInteractionsState>()(
       name: 'e6-interactions',
       storage: {
         getItem: (name) => {
-          const str = localStorage.getItem(name);
+          const username = getCurrentUsername();
+          const key = `${name}-${username}`;
+          const str = localStorage.getItem(key);
           if (!str) return null;
           const parsed = JSON.parse(str);
           // Convert userFavorites array back to Set
@@ -474,6 +582,8 @@ export const useUserInteractionsStore = create<UserInteractionsState>()(
           return parsed;
         },
         setItem: (name, value) => {
+          const username = getCurrentUsername();
+          const key = `${name}-${username}`;
           // Convert Set to array for JSON serialization
           const toStore = {
             ...value,
@@ -482,10 +592,136 @@ export const useUserInteractionsStore = create<UserInteractionsState>()(
               userFavorites: Array.from(value.state.userFavorites || []),
             },
           };
-          localStorage.setItem(name, JSON.stringify(toStore));
+          localStorage.setItem(key, JSON.stringify(toStore));
         },
-        removeItem: (name) => localStorage.removeItem(name),
+        removeItem: (name) => {
+          const username = getCurrentUsername();
+          const key = `${name}-${username}`;
+          localStorage.removeItem(key);
+        },
       },
     }
   )
 );
+
+// Function to reload user-specific stores after login/logout
+const reloadUserStores = () => {
+  // Force rehydration of user-specific stores
+  // This is a workaround since zustand persist doesn't support dynamic keys natively
+  const settingsState = useSettingsStore.getState();
+  const searchState = useSearchStore.getState();
+  const interactionsState = useUserInteractionsStore.getState();
+  
+  // Trigger a rehydration by reading from new user's storage
+  const username = getCurrentUsername();
+  
+  // Settings
+  const settingsData = localStorage.getItem(`e6-settings-${username}`);
+  if (settingsData) {
+    try {
+      const parsed = JSON.parse(settingsData);
+      if (parsed.state) {
+        useSettingsStore.setState({
+          ...parsed.state,
+          hasShownInitialSplash: false,
+        });
+        // Apply theme
+        if (parsed.state.themeHue !== undefined && parsed.state.themeSaturation !== undefined) {
+          document.documentElement.style.setProperty('--primary', `${parsed.state.themeHue} ${parsed.state.themeSaturation}% 55%`);
+          document.documentElement.style.setProperty('--ring', `${parsed.state.themeHue} ${parsed.state.themeSaturation}% 55%`);
+          document.documentElement.style.setProperty('--accent', `${(parsed.state.themeHue + 20) % 360} ${parsed.state.themeSaturation}% 55%`);
+        }
+        if (parsed.state.themeMode) {
+          applyThemeMode(parsed.state.themeMode);
+          setupSystemThemeListener(parsed.state.themeMode);
+        }
+      }
+    } catch (e) {
+      // Reset to defaults for new user
+      useSettingsStore.setState({
+        ratingFilter: 'sqe',
+        mediaFilter: 'all',
+        darkMode: true,
+        themeMode: 'system',
+        gridColumns: 2,
+        viewMode: 'gallery',
+        themeHue: 215,
+        themeSaturation: 85,
+        savedMediaFilter: 'all',
+        hasShownInitialSplash: false,
+        storageLimitMB: 500,
+      });
+    }
+  } else {
+    // Reset to defaults for new user
+    useSettingsStore.setState({
+      ratingFilter: 'sqe',
+      mediaFilter: 'all',
+      darkMode: true,
+      themeMode: 'system',
+      gridColumns: 2,
+      viewMode: 'gallery',
+      themeHue: 215,
+      themeSaturation: 85,
+      savedMediaFilter: 'all',
+      hasShownInitialSplash: false,
+      storageLimitMB: 500,
+    });
+  }
+  
+  // Search
+  const searchData = localStorage.getItem(`e6-search-${username}`);
+  if (searchData) {
+    try {
+      const parsed = JSON.parse(searchData);
+      if (parsed.state) {
+        useSearchStore.setState(parsed.state);
+      }
+    } catch (e) {
+      // Reset to defaults
+      useSearchStore.setState({
+        currentTags: '',
+        searchHistory: [],
+        cachedPosts: null,
+        savedSearches: [],
+      });
+    }
+  } else {
+    // Reset to defaults for new user
+    useSearchStore.setState({
+      currentTags: '',
+      searchHistory: [],
+      cachedPosts: null,
+      savedSearches: [],
+    });
+  }
+  
+  // Interactions
+  const interactionsData = localStorage.getItem(`e6-interactions-${username}`);
+  if (interactionsData) {
+    try {
+      const parsed = JSON.parse(interactionsData);
+      if (parsed.state) {
+        useUserInteractionsStore.setState({
+          ...parsed.state,
+          userFavorites: new Set(parsed.state.userFavorites || []),
+        });
+      }
+    } catch (e) {
+      // Reset to defaults
+      useUserInteractionsStore.setState({
+        userVotes: {},
+        userFavorites: new Set<number>(),
+      });
+    }
+  } else {
+    // Reset to defaults for new user
+    useUserInteractionsStore.setState({
+      userVotes: {},
+      userFavorites: new Set<number>(),
+    });
+  }
+  
+  // Re-initialize theme for new user
+  initializeTheme();
+};

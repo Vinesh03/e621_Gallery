@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense } from "react";
+import React, { Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -16,12 +16,7 @@ const router = createBrowserRouter([
   { path: "/favorites", element: <FavoritesPageWithProtect /> },
   { path: "/", element: <Navigate to="/gallery" replace /> },
   { path: "*", element: <NotFound /> },
-], {
-  future: {
-    v7_startTransition: true,
-    v7_relativeSplatPath: true,
-  }
-});
+]);
 
 const queryClient = new QueryClient();
 
@@ -52,35 +47,7 @@ function FavoritesPageWithProtect() {
   );
 }
 
-function AppContent() {
-  const { themeMode } = useSettingsStore();
-
-  // Re-initialize theme when themeMode changes
-  useEffect(() => {
-    initializeTheme();
-  }, [themeMode]);
-
-
-  return (
-    <Suspense fallback={<div className="p-4">Loading…</div>}>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/gallery" element={
-          <ProtectedRoute>
-            <GalleryPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/favorites" element={
-          <ProtectedRoute>
-            <FavoritesPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/" element={<Navigate to="/gallery" replace />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
-  );
-}
+// AppContent removed - using RouterProvider instead
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

@@ -1,7 +1,7 @@
 import { E621Post, E621PostsResponse, E621User, SearchParams, AuthCredentials, E621Tag, MediaFilter, E621Comment } from '@/types/e621';
 
 const BASE_URL = 'https://e621.net';
-const USER_AGENT = 'E6Gallery/1.0 (Lovable App)';
+const USER_AGENT = 'E6Gallery/1.0.0 (Lovable App)';
 
 class E621Api {
   private credentials: AuthCredentials | null = null;
