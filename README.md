@@ -1,73 +1,87 @@
-# Welcome to your Lovable project
+# **e621 Gallery**
 
-## Project info
+e621 Gallery is a modern mobile client for e621.net, designed to provide a smooth and native-like browsing experience.  
+The application was developed using a vibe-coding approach, iterating rapidly to achieve a responsive interface packed with features.  
+Leveraging **Ionic Capacitor**, this web app has been compiled into a fully functional Android application, ensuring high performance and seamless device integration.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## **📥 Download**
 
-## How can I edit this code?
+You can find the signed APK directly in this repository (check the Releases section).  
+Download and install the .apk file on your Android device to start browsing.
 
-There are several ways of editing your application.
+## **✨ Key Features**
 
-**Use Lovable**
+### **🎬 Shorts Mode**
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+A brand-new way to explore video content on e621.
 
-Changes made via Lovable will be committed automatically to this repo.
+* **Infinite Scroll**: Swipe through videos vertically, TikTok/Reels style.  
+* **Context-Aware**: If you search for a tag (e.g., animated), the shorts will show relevant videos. If no search is active, it displays the latest uploads.
 
-**Use your preferred IDE**
+### **🔍 Powerful & Smart Search**
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+* **Tag Autocomplete**: As you type, the app suggests correct tags along with their post counts (tag prediction), preventing typos.  
+* **Advanced Syntax**: Full support for e621 search syntax (e.g., use \-tag to exclude results, user:name to find specific users).  
+* **Saved Searches**: Save your favorite tag combinations for one-tap access, eliminating the need to re-type them every time.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+### **👤 Access & Account Management**
 
-Follow these steps:
+* **Guest Mode**: No registration or login required. You can use the app freely as a guest to browse and search for content.  
+* **API Key Login**: For advanced features, log in using your Username and e621 API Key (no password required, ensuring maximum security).  
+* **Full Interactions (for logged-in users)**:  
+  * Manage Favorites (Add/Remove).  
+  * Voting (Like/Dislike/Unvote).  
+  * Blacklist Management.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### **📱 User Experience**
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+* **Mobile-First Design**: Tailor-made for one-handed use.  
+* **Modern UI**: Clean and elegant interface built with shadcn-ui components.
 
-# Step 3: Install the necessary dependencies.
-npm i
+## **⚠️ Disclaimer**
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+This application is a third-party client and is not officially affiliated with e621.net.  
+The app provides access to content that may be NSFW (Not Safe For Work) and is intended for an adult audience (18+). The user is responsible for using the app in compliance with local laws and e621's terms of service.
+
+## **🛠️ Tech Stack**
+
+The project leverages the latest web and hybrid technologies:
+
+* **Framework**: [React](https://reactjs.org/) \+ [Vite](https://vitejs.dev/)  
+* **Language**: [TypeScript](https://www.typescriptlang.org/)  
+* **Mobile Runtime**: [Ionic Capacitor](https://capacitorjs.com/) (for the Android build)  
+* **UI/UX**: [Tailwind CSS](https://tailwindcss.com/) \+ [shadcn-ui](https://ui.shadcn.com/)  
+* **Methodology**: Vibe-coding (AI-assisted iterative development)
+
+## **💻 Local Development**
+
+If you wish to contribute or build the app from source, follow these steps.
+
+### **Prerequisites**
+
+* Node.js & npm  
+* Android Studio (for the Android build)
+
+### **Installation**
+
+\# 1\. Clone the repository  
+git clone \<YOUR\_GIT\_URL\>  
+cd \<FOLDER\_NAME\>
+
+\# 2\. Install dependencies  
+npm install
+
+\# 3\. Start the web development server  
 npm run dev
-```
 
-**Edit a file directly in GitHub**
+\# 4\. Sync with Capacitor (for native changes)  
+npx cap sync
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### **Android Build**
 
-**Use GitHub Codespaces**
+To generate the APK or run on an emulator:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+\# Open the project in Android Studio  
+npx cap open android
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+*Developed with ❤️ and vibes.*

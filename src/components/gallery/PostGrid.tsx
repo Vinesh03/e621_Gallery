@@ -37,7 +37,10 @@ export function PostGrid({
       while (node) {
         const style = window.getComputedStyle(node);
         const overflowY = style.overflowY;
+        // common scrollable values
         if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') return node;
+        // sometimes overflow is 'visible' but the element is scrollable (content larger than container)
+        if (node.scrollHeight > node.clientHeight) return node;
         node = node.parentElement;
       }
       return null;
@@ -72,11 +75,12 @@ export function PostGrid({
               } catch (e) {
                 /* ignore */
               }
-            }, 800) as unknown as number;
+            }, 1200) as unknown as number;
           }
         });
       },
-      { root: rootEl, rootMargin: '300px', threshold: 0.1 }
+      // use a larger rootMargin and a low threshold to trigger earlier
+      { root: rootEl, rootMargin: '600px', threshold: 0.01 }
     );
 
     observerRef.current.observe(el);
