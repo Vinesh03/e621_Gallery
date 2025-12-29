@@ -65,21 +65,19 @@ If you wish to contribute or build the app from source, follow these steps.
 
 ### **Installation**
 
-**```sh**
+```sh
+# 1. Clone the repository  
+git clone https://github.com/Vinesh03/e621_Gallery-android-companion-app.git 
+cd e621_Gallery-android-companion-app
 
-\# 1. Clone the repository  
-git clone <YOUR\_GIT\_URL>  
-cd <FOLDER\_NAME>
-
-\# 2. Install dependencies  
+# 2. Install dependencies  
 npm install
 
-\# 3. Start the web development server  
+# 3. Start the web development server  
 npm run dev
 
-\# 4. Sync with Capacitor (for native changes)  
+# 4. Sync with Capacitor (for native changes)  
 npx cap sync
-
 ```
 
 ### **Android Build**
@@ -87,10 +85,8 @@ npx cap sync
 To generate the APK or run on an emulator:
 
 ```sh
-
-\# Open the project in Android Studio  
+# Open the project in Android Studio  
 npx cap open android
-
 ```
 
 *Developed with ❤️ and vibes.*
