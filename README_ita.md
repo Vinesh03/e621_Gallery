@@ -65,21 +65,19 @@ Se vuoi contribuire o compilare l'app da solo, segui questi passaggi.
 
 ### **Installazione**
 
-**```sh**
-
-\# 1. Clona la repository  
+```sh
+# 1. Clona la repository  
 git clone <IL\_TUO\_GIT\_URL>  
 cd <NOME\_CARTELLA>
 
-\# 2. Installa le dipendenze  
+# 2. Installa le dipendenze  
 npm install
 
-\# 3. Avvia il server di sviluppo web  
+# 3. Avvia il server di sviluppo web  
 npm run dev
 
-\# 4. Sincronizza con Capacitor (se fai modifiche native)  
+# 4. Sincronizza con Capacitor (se fai modifiche native)  
 npx cap sync
-
 ```
 
 ### **Build Android**
@@ -87,10 +85,8 @@ npx cap sync
 Per generare l'APK o avviare su emulatore:
 
 ```sh
-
-\# Apri il progetto in Android Studio  
+# Apri il progetto in Android Studio  
 npx cap open android
-
 ```
 
 *Developed with ❤️ and vibes.*
