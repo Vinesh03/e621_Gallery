@@ -441,6 +441,7 @@ export function PostViewer({
                               playsInline
                               preload="metadata"
                               className="max-w-full max-h-full object-contain"
+                              onClick={(e) => e.stopPropagation()}
                               onError={() => {
                                 toast.error('Video non riproducibile');
                                 setInAppVideoUrl(null);
@@ -864,19 +865,13 @@ export function PostViewer({
                               playsInline
                               preload="metadata"
                               className="max-w-full max-h-[60vh] object-contain rounded-lg"
+                              onClick={(e) => e.stopPropagation()}
                               onError={() => {
                                 toast.error('Video non riproducibile');
                                 setInAppVideoUrl(null);
                               }}
                             />
-                            <button
-                              type="button"
-                              aria-label="Chiudi video"
-                              onClick={() => setInAppVideoUrl(null)}
-                              className="absolute top-2 right-2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
+                            {/* X button removed to avoid confusion with main close button */}
                           </div>
                         ) : (
                           <div
