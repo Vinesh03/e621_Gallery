@@ -1,10 +1,10 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { useSearchStore, useAuthStore, useUserInteractionsStore } from '@/stores/appStore';
+import { useSearchStore, useAuthStore, useUserInteractionsStore, useSettingsStore } from '@/stores/appStore';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { X, Download, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle, Star, Loader2 } from 'lucide-react';
+import { X, Download, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle, Star, Loader2, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
@@ -14,6 +14,8 @@ import { nativeVideoPlayer } from '@/services/nativeVideoPlayer';
 import { useNavigate } from 'react-router-dom';
 import { CommentsSheet } from './CommentsSheet';
 import { FilterSheet } from './FilterSheet';
+import { downloadService } from '@/services/downloadService';
+import { shareService } from '@/services/shareService';
 
 interface PostViewerProps {
   post: E621Post | null;
@@ -66,6 +68,8 @@ export function PostViewer({
   const [isLiking, setIsLiking] = useState(false);
   const [isDisliking, setIsDisliking] = useState(false);
   const [isFavoriting, setIsFavoriting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const [localPost, setLocalPost] = useState<E621Post | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
@@ -76,6 +80,7 @@ export function PostViewer({
   const { currentTags, setCurrentTags } = useSearchStore();
   const { isGuest } = useAuthStore();
   const { getUserVote, setUserVote, isUserFavorite, setUserFavorite } = useUserInteractionsStore();
+  const { downloadFolder } = useSettingsStore();
 
   // Get persisted vote and favorite state for current post
   const userVote = post ? getUserVote(post.id) : 0;
@@ -147,8 +152,41 @@ export function PostViewer({
       return;
     }
 
-    window.open(downloadUrl, '_blank');
-    toast.success('Download aperto in nuova scheda');
+    setIsDownloading(true);
+    try {
+      const result = await downloadService.downloadFile(downloadUrl, localPost.id, downloadFolder);
+      if (result.success) {
+        toast.success('Download completato!', {
+          description: downloadFolder === 'e621_gallery' ? 'Salvato in e621_Gallery' : 'Salvato in Download',
+        });
+      } else {
+        toast.error('Errore nel download', {
+          description: result.error,
+        });
+      }
+    } catch (error) {
+      toast.error('Errore nel download');
+      console.error('Download error:', error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleShare = async () => {
+    setIsSharing(true);
+    try {
+      const result = await shareService.sharePost(localPost.id);
+      if (result.success) {
+        toast.success('Link copiato!');
+      } else if (result.error) {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      toast.error('Errore nella condivisione');
+      console.error('Share error:', error);
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const handleOpenOnE621 = () => {
@@ -377,10 +415,19 @@ export function PostViewer({
                 </div>
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={handleShare}
+                    disabled={isSharing}
+                    className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                    title="Condividi"
+                  >
+                    {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                  </button>
+                  <button
                     onClick={handleDownload}
+                    disabled={isDownloading}
                     className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                   >
-                    <Download className="w-4 h-4" />
+                    {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   </button>
                   <button
                     onClick={handleClose}
@@ -808,10 +855,19 @@ export function PostViewer({
                   Info
                 </button>
                 <button
+                  onClick={handleShare}
+                  disabled={isSharing}
+                  className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                  title="Condividi"
+                >
+                  {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                </button>
+                <button
                   onClick={handleDownload}
+                  disabled={isDownloading}
                   className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                 >
-                  <Download className="w-4 h-4" />
+                  {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                 </button>
                 <button
                   onClick={handleClose}

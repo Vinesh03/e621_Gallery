@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useSettingsStore, useSearchStore } from '@/stores/appStore';
+import { useSettingsStore, useSearchStore, DownloadFolder } from '@/stores/appStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { HardDrive, Trash2, Moon, Sun, Monitor } from 'lucide-react';
+import { HardDrive, Trash2, Moon, Sun, Monitor, FolderDown, Folder } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
 import { ThemeCustomizer } from './ThemeCustomizer';
@@ -36,7 +36,7 @@ function formatStorageSize(mb: number): string {
 }
 
 export function AdvancedSettings() {
-  const { storageLimitMB, setStorageLimitMB, themeMode, setThemeMode } = useSettingsStore();
+  const { storageLimitMB, setStorageLimitMB, themeMode, setThemeMode, downloadFolder, setDownloadFolder } = useSettingsStore();
   const { clearCache } = useSearchStore();
   const { t } = useLanguage();
   
@@ -47,6 +47,11 @@ export function AdvancedSettings() {
     { value: 'dark', label: t('theme.dark'), icon: Moon },
     { value: 'light', label: t('theme.light'), icon: Sun },
     { value: 'system', label: t('theme.system'), icon: Monitor },
+  ];
+
+  const downloadFolderOptions: { value: DownloadFolder; label: string; description: string; icon: typeof FolderDown }[] = [
+    { value: 'downloads', label: 'Download', description: 'Cartella Download standard', icon: FolderDown },
+    { value: 'e621_gallery', label: 'e621_Gallery', description: 'Sottocartella dedicata', icon: Folder },
   ];
 
   // Estimate storage usage
@@ -134,6 +139,38 @@ export function AdvancedSettings() {
               >
                 <Icon className="w-5 h-5" />
                 <span className="text-xs font-medium">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Download folder */}
+      <div className="space-y-2">
+        <h4 className="font-medium text-sm">Cartella Download</h4>
+        <p className="text-xs text-muted-foreground">
+          Scegli dove salvare i contenuti scaricati
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          {downloadFolderOptions.map((option) => {
+            const Icon = option.icon;
+            return (
+              <button
+                key={option.value}
+                onClick={() => {
+                  setDownloadFolder(option.value);
+                  toast.success(`Cartella impostata: ${option.label}`);
+                }}
+                className={cn(
+                  "p-3 rounded-lg flex flex-col items-center gap-2 transition-colors text-center",
+                  downloadFolder === option.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary hover:bg-secondary/80"
+                )}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-xs font-medium">{option.label}</span>
+                <span className="text-[10px] opacity-70">{option.description}</span>
               </button>
             );
           })}

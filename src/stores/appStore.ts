@@ -27,6 +27,8 @@ interface AuthState {
 
 type ThemeMode = 'dark' | 'light' | 'system';
 
+export type DownloadFolder = 'downloads' | 'e621_gallery';
+
 interface SettingsState {
   ratingFilter: RatingFilter;
   mediaFilter: MediaFilter;
@@ -39,6 +41,7 @@ interface SettingsState {
   savedMediaFilter: MediaFilter; // Saved filter before switching to shorts
   hasShownInitialSplash: boolean; // Track if splash has been shown this session
   storageLimitMB: number; // Storage limit in megabytes (GLOBAL, not per-user)
+  downloadFolder: DownloadFolder; // Download folder setting
   
   setRatingFilter: (filter: RatingFilter) => void;
   setMediaFilter: (filter: MediaFilter) => void;
@@ -50,6 +53,7 @@ interface SettingsState {
   setSavedMediaFilter: (filter: MediaFilter) => void;
   setHasShownInitialSplash: (shown: boolean) => void;
   setStorageLimitMB: (limit: number) => void;
+  setDownloadFolder: (folder: DownloadFolder) => void;
 }
 
 interface CachedPosts {
@@ -382,6 +386,7 @@ export const useSettingsStore = create<SettingsState>()(
       savedMediaFilter: 'all',
       hasShownInitialSplash: false,
       storageLimitMB: 500, // Kept for compatibility but use useGlobalSettingsStore
+      downloadFolder: 'downloads' as DownloadFolder, // Default to downloads folder
 
       setRatingFilter: (filter) => set({ ratingFilter: filter }),
       setMediaFilter: (filter) => set({ mediaFilter: filter }),
@@ -401,19 +406,21 @@ export const useSettingsStore = create<SettingsState>()(
         useGlobalSettingsStore.getState().setStorageLimitMB(limit);
         set({ storageLimitMB: limit });
       },
+      setDownloadFolder: (folder) => set({ downloadFolder: folder }),
     }),
     {
       name: 'e6-settings',
       storage: createJSONStorage(() => createUserSettingsStorage()),
-      version: 6,
+      version: 7,
       migrate: (persistedState: any, version: number) => {
-        if (version < 6 && persistedState && typeof persistedState === 'object') {
+        if (version < 7 && persistedState && typeof persistedState === 'object') {
           return {
             ...persistedState,
             ratingFilter: persistedState.ratingFilter ?? 'sqe',
             themeMode: persistedState.themeMode ?? (persistedState.darkMode ? 'dark' : 'system'),
             hasShownInitialSplash: false,
             storageLimitMB: persistedState.storageLimitMB ?? 500,
+            downloadFolder: persistedState.downloadFolder ?? 'downloads',
           };
         }
         return persistedState;
@@ -530,11 +537,17 @@ export const useSearchStore = create<SearchState>()(
       name: 'e6-search',
       storage: createJSONStorage(() => createUserSearchStorage()),
       partialize: (state) => ({
-        currentTags: state.currentTags,
+        // Don't persist currentTags - always start with empty search
         searchHistory: state.searchHistory,
         cachedPosts: state.cachedPosts,
         savedSearches: state.savedSearches,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Always reset currentTags on app start
+        if (state) {
+          state.currentTags = '';
+        }
+      },
     }
   )
 );
@@ -650,6 +663,7 @@ const reloadUserStores = () => {
         savedMediaFilter: 'all',
         hasShownInitialSplash: false,
         storageLimitMB: 500,
+        downloadFolder: 'downloads',
       });
     }
   } else {
@@ -666,6 +680,7 @@ const reloadUserStores = () => {
       savedMediaFilter: 'all',
       hasShownInitialSplash: false,
       storageLimitMB: 500,
+      downloadFolder: 'downloads',
     });
   }
   
