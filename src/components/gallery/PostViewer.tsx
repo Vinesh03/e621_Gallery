@@ -88,28 +88,40 @@ export function PostViewer({
 
   // Sync local post with prop and fetch fresh stats
   useEffect(() => {
-    if (post && isOpen) {
-      setLocalPost(post);
-      
-      // Fetch fresh post data from API
-      const fetchFreshStats = async () => {
-        setIsLoadingStats(true);
-        try {
-          const freshPost = await e621Api.getPost(post.id);
+    if (!post?.id || !isOpen) return;
+    
+    setLocalPost(post);
+    
+    // Fetch fresh post data from API with abort controller
+    const abortController = new AbortController();
+    
+    const fetchFreshStats = async () => {
+      setIsLoadingStats(true);
+      try {
+        const freshPost = await e621Api.getPost(post.id);
+        if (!abortController.signal.aborted) {
           setLocalPost(freshPost);
           // Update favorite state from API if authenticated
           if (freshPost.is_favorited) {
             setUserFavorite(post.id, true);
           }
-        } catch (error) {
+        }
+      } catch (error) {
+        if (!abortController.signal.aborted) {
           console.error('Error fetching fresh post stats:', error);
-        } finally {
+        }
+      } finally {
+        if (!abortController.signal.aborted) {
           setIsLoadingStats(false);
         }
-      };
-      
-      fetchFreshStats();
-    }
+      }
+    };
+    
+    fetchFreshStats();
+    
+    return () => {
+      abortController.abort();
+    };
   }, [post?.id, isOpen, setUserFavorite]);
 
   // Reset state when post changes
@@ -779,7 +791,6 @@ export function PostViewer({
           onTouchEnd={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <DialogTitle className="sr-only">Visualizzatore post {localPost.id}</DialogTitle>
           <DialogTitle className="sr-only">Visualizzatore post {localPost.id}</DialogTitle>
           <DialogDescription className="sr-only">Visualizzatore post {localPost.id}</DialogDescription>
           <div className="relative flex flex-col h-[95vh]">

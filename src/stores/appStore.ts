@@ -103,74 +103,68 @@ interface UserInteractionsState {
   clearInteractions: () => void;
 }
 
-// Helper function to get current username from auth store
+// Helper function to get current username from auth store (cached for performance)
+let cachedUsername: string | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 1000; // 1 second cache
+
 const getCurrentUsername = (): string => {
+  const now = Date.now();
+  if (cachedUsername && now - cacheTimestamp < CACHE_TTL) {
+    return cachedUsername;
+  }
+  
   try {
     const authData = localStorage.getItem('e6-auth');
     if (authData) {
       const parsed = JSON.parse(authData);
-      return parsed.state?.credentials?.username || 'guest';
+      cachedUsername = parsed.state?.credentials?.username || 'guest';
+      cacheTimestamp = now;
+      return cachedUsername;
     }
   } catch (e) {
-    // Ignore
+    console.error('Error reading auth data:', e);
   }
-  return 'guest';
+  cachedUsername = 'guest';
+  cacheTimestamp = now;
+  return cachedUsername;
 };
 
-// Create user-specific storage for settings
-const createUserSettingsStorage = (): StateStorage => ({
-  getItem: (name: string): string | null => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    return localStorage.getItem(key);
-  },
-  setItem: (name: string, value: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.setItem(key, value);
-  },
-  removeItem: (name: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.removeItem(key);
-  },
-});
+// Clear username cache on auth changes
+const clearUsernameCache = () => {
+  cachedUsername = null;
+  cacheTimestamp = 0;
+};
 
-// Create user-specific storage for search data
-const createUserSearchStorage = (): StateStorage => ({
+// Create user-specific storage factory (DRY - Don't Repeat Yourself)
+const createUserStorage = (): StateStorage => ({
   getItem: (name: string): string | null => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    return localStorage.getItem(key);
+    try {
+      const username = getCurrentUsername();
+      const key = `${name}-${username}`;
+      return localStorage.getItem(key);
+    } catch (e) {
+      console.error('Error reading from storage:', e);
+      return null;
+    }
   },
   setItem: (name: string, value: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.setItem(key, value);
+    try {
+      const username = getCurrentUsername();
+      const key = `${name}-${username}`;
+      localStorage.setItem(key, value);
+    } catch (e) {
+      console.error('Error writing to storage:', e);
+    }
   },
   removeItem: (name: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.removeItem(key);
-  },
-});
-
-// Create user-specific storage for interactions
-const createUserInteractionsStorage = (): StateStorage => ({
-  getItem: (name: string): string | null => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    return localStorage.getItem(key);
-  },
-  setItem: (name: string, value: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.setItem(key, value);
-  },
-  removeItem: (name: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.removeItem(key);
+    try {
+      const username = getCurrentUsername();
+      const key = `${name}-${username}`;
+      localStorage.removeItem(key);
+    } catch (e) {
+      console.error('Error removing from storage:', e);
+    }
   },
 });
 
@@ -206,7 +200,8 @@ export const useAuthStore = create<AuthState>()(
             savedAccounts: newSavedAccounts,
           }));
           
-          // Reload user-specific stores after login
+          // Clear cache and reload user-specific stores after login
+          clearUsernameCache();
           reloadUserStores();
           
           return true;
@@ -242,7 +237,8 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
           });
           
-          // Reload user-specific stores after login
+          // Clear cache and reload user-specific stores after login
+          clearUsernameCache();
           reloadUserStores();
           
           return true;
@@ -265,6 +261,7 @@ export const useAuthStore = create<AuthState>()(
 
       loginAsGuest: () => {
         e621Api.setCredentials(null);
+        clearUsernameCache(); // Clear cache when switching to guest
         set({ credentials: null, isGuest: true, error: null });
         // Reload user-specific stores for guest
         reloadUserStores();
@@ -272,6 +269,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         e621Api.setCredentials(null);
+        clearUsernameCache(); // Clear cache on logout
         set({ credentials: null, isGuest: false, error: null, isFirstLogin: true });
       },
 
@@ -410,7 +408,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'e6-settings',
-      storage: createJSONStorage(() => createUserSettingsStorage()),
+      storage: createJSONStorage(() => createUserStorage()),
       version: 7,
       migrate: (persistedState: any, version: number) => {
         if (version < 7 && persistedState && typeof persistedState === 'object') {
@@ -535,7 +533,7 @@ export const useSearchStore = create<SearchState>()(
     }),
     {
       name: 'e6-search',
-      storage: createJSONStorage(() => createUserSearchStorage()),
+      storage: createJSONStorage(() => createUserStorage()),
       partialize: (state) => ({
         // Don't persist currentTags - always start with empty search
         searchHistory: state.searchHistory,
