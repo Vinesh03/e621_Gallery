@@ -640,17 +640,32 @@ export function PostViewer({
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="overflow-hidden border-t border-border"
-                      drag="y"
-                      dragConstraints={{ top: 0, bottom: 0 }}
-                      dragElastic={0.2}
-                      onDragEnd={(event, info) => {
-                        // Swipe down on info panel = close info
-                        if (info.offset.y > 50) {
-                          setMobileInfoExpanded(false);
-                        }
-                      }}
+                      className="overflow-hidden border-t border-border flex flex-col"
                     >
+                      {/* Drag handle area for gestures */}
+                      <motion.div
+                        className="flex justify-center py-3 bg-card cursor-grab active:cursor-grabbing touch-none"
+                        drag
+                        dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
+                        dragElastic={0.2}
+                        onDragEnd={(event, info) => {
+                          // Swipe down = close info
+                          if (info.offset.y > 50) {
+                            setMobileInfoExpanded(false);
+                          }
+                          // Horizontal swipe for navigation
+                          if (Math.abs(info.offset.x) > 80 && Math.abs(info.offset.y) < 50) {
+                            if (info.offset.x < 0 && hasNext && onNext) {
+                              onNext();
+                            } else if (info.offset.x > 0 && hasPrevious && onPrevious) {
+                              onPrevious();
+                            }
+                          }
+                        }}
+                      >
+                        <div className="w-12 h-1 rounded-full bg-muted-foreground/50" />
+                      </motion.div>
+                      
                       <div className="h-[40vh] overflow-y-auto p-4 space-y-4 bg-card">
                         {/* Stats */}
                         <div className="space-y-2">
