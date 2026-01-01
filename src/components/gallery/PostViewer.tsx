@@ -641,6 +641,15 @@ export function PostViewer({
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3 }}
                       className="overflow-hidden border-t border-border"
+                      drag="y"
+                      dragConstraints={{ top: 0, bottom: 0 }}
+                      dragElastic={0.2}
+                      onDragEnd={(event, info) => {
+                        // Swipe down on info panel = close info
+                        if (info.offset.y > 50) {
+                          setMobileInfoExpanded(false);
+                        }
+                      }}
                     >
                       <div className="h-[40vh] overflow-y-auto p-4 space-y-4 bg-card">
                         {/* Stats */}
