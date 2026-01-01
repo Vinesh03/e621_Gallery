@@ -75,7 +75,57 @@ export function PostViewer({
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
+  const infoSwipeRef = useRef<{
+    startX: number;
+    startY: number;
+    axis: 'none' | 'x' | 'y';
+    startScrollTop: number;
+    triggered: boolean;
+  } | null>(null);
   const navigate = useNavigate();
+
+  const startInfoSwipe = (x: number, y: number, scrollTop: number) => {
+    infoSwipeRef.current = {
+      startX: x,
+      startY: y,
+      axis: 'none',
+      startScrollTop: scrollTop,
+      triggered: false,
+    };
+  };
+
+  const handleInfoSwipeMove = (dx: number, dy: number, scrollTop: number) => {
+    const s = infoSwipeRef.current;
+    if (!s || s.triggered) return;
+
+    if (s.axis === 'none') {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      s.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    }
+
+    // Swipe down on info content (only when scrolled at top) = close info
+    if (s.axis === 'y') {
+      if (dy > 60 && scrollTop <= 0 && s.startScrollTop <= 0) {
+        s.triggered = true;
+        setMobileInfoExpanded(false);
+      }
+      return;
+    }
+
+    // Horizontal swipe on info content = navigate posts
+    if (Math.abs(dx) > 90 && Math.abs(dy) < 60) {
+      s.triggered = true;
+      if (dx < 0 && hasNext && onNext) {
+        onNext();
+      } else if (dx > 0 && hasPrevious && onPrevious) {
+        onPrevious();
+      }
+    }
+  };
+
+  const endInfoSwipe = () => {
+    infoSwipeRef.current = null;
+  };
   
   const { currentTags, setCurrentTags } = useSearchStore();
   const { isGuest } = useAuthStore();
@@ -453,8 +503,9 @@ export function PostViewer({
               {/* Main content with drag to expand */}
               <motion.div 
                 className="flex-1 flex flex-col overflow-hidden"
-                drag="y"
-                dragConstraints={{ top: 0, bottom: 0 }}
+                drag
+                dragDirectionLock
+                dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
                 dragElastic={0.2}
                 onDragEnd={handleDragEnd}
               >
@@ -666,7 +717,33 @@ export function PostViewer({
                         <div className="w-12 h-1 rounded-full bg-muted-foreground/50" />
                       </motion.div>
                       
-                      <div className="h-[40vh] overflow-y-auto p-4 space-y-4 bg-card">
+                      <div
+                        className="h-[40vh] overflow-y-auto p-4 space-y-4 bg-card"
+                        style={{ touchAction: 'pan-y' }}
+                        onTouchStart={(e) => {
+                          const t = e.touches[0];
+                          if (!t) return;
+                          startInfoSwipe(t.clientX, t.clientY, e.currentTarget.scrollTop);
+                        }}
+                        onTouchMove={(e) => {
+                          const t = e.touches[0];
+                          const s = infoSwipeRef.current;
+                          if (!t || !s) return;
+                          handleInfoSwipeMove(t.clientX - s.startX, t.clientY - s.startY, e.currentTarget.scrollTop);
+                        }}
+                        onTouchEnd={endInfoSwipe}
+                        onTouchCancel={endInfoSwipe}
+                        onPointerDown={(e) => {
+                          startInfoSwipe(e.clientX, e.clientY, e.currentTarget.scrollTop);
+                        }}
+                        onPointerMove={(e) => {
+                          const s = infoSwipeRef.current;
+                          if (!s) return;
+                          handleInfoSwipeMove(e.clientX - s.startX, e.clientY - s.startY, e.currentTarget.scrollTop);
+                        }}
+                        onPointerUp={endInfoSwipe}
+                        onPointerCancel={endInfoSwipe}
+                      >
                         {/* Stats */}
                         <div className="space-y-2">
                           <h3 className="font-semibold text-sm">Stats</h3>
