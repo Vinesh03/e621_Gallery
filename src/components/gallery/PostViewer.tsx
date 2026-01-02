@@ -99,14 +99,23 @@ export function PostViewer({
     const s = infoSwipeRef.current;
     if (!s || s.triggered) return;
 
+    const atTop = scrollTop <= 0 && s.startScrollTop <= 0;
+
+    // Decide axis
     if (s.axis === 'none') {
-      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-      s.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+
+      // If we're at the top and the user is pulling down, prioritize vertical close gesture.
+      if (atTop && dy > 0 && Math.abs(dy) >= Math.abs(dx) * 0.8) {
+        s.axis = 'y';
+      } else {
+        s.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      }
     }
 
     // Swipe down on info content (only when scrolled at top) = close info
     if (s.axis === 'y') {
-      if (dy > 60 && scrollTop <= 0 && s.startScrollTop <= 0) {
+      if (atTop && dy > 60) {
         s.triggered = true;
         setMobileInfoExpanded(false);
       }
@@ -504,7 +513,7 @@ export function PostViewer({
               {/* Main content with drag to expand */}
               <motion.div 
                 className="flex-1 flex flex-col overflow-hidden"
-                drag
+                drag={!mobileInfoExpanded}
                 dragDirectionLock
                 dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
                 dragElastic={0.2}
@@ -693,6 +702,9 @@ export function PostViewer({
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3 }}
                       className="overflow-hidden border-t border-border flex flex-col"
+                      // Stop the parent (media) drag from stealing pointer capture when the gesture starts inside Info
+                      onTouchStartCapture={(e) => e.stopPropagation()}
+                      onPointerDownCapture={(e) => e.stopPropagation()}
                       onTouchStart={(e) => {
                         e.stopPropagation();
                         const t = e.touches[0];
@@ -703,11 +715,17 @@ export function PostViewer({
                         const t = e.touches[0];
                         const s = infoSwipeRef.current;
                         if (!t || !s) return;
-                        handleInfoSwipeMove(
-                          t.clientX - s.startX,
-                          t.clientY - s.startY,
-                          infoScrollRef.current?.scrollTop ?? 0
-                        );
+
+                        const dx = t.clientX - s.startX;
+                        const dy = t.clientY - s.startY;
+                        const scrollTop = infoScrollRef.current?.scrollTop ?? 0;
+
+                        // When at top and pulling down, prevent scroll/drag conflicts so the close gesture is reliable
+                        if (scrollTop <= 0 && s.startScrollTop <= 0 && dy > 0 && Math.abs(dy) > Math.abs(dx)) {
+                          e.stopPropagation();
+                        }
+
+                        handleInfoSwipeMove(dx, dy, scrollTop);
                       }}
                       onTouchEnd={endInfoSwipe}
                       onTouchCancel={endInfoSwipe}
