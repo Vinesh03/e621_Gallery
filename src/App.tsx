@@ -8,12 +8,14 @@ import { useAuthStore, useSettingsStore, initializeTheme } from "@/stores/appSto
 const LoginPage = React.lazy(() => import("@/pages/LoginPage"));
 const GalleryPage = React.lazy(() => import("@/pages/GalleryPage"));
 const FavoritesPage = React.lazy(() => import("@/pages/FavoritesPage"));
+const SettingsPage = React.lazy(() => import("@/pages/SettingsPage"));
 const NotFound = React.lazy(() => import("@/pages/NotFound"));
 
 const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/gallery", element: <GalleryPageWithProtect /> },
   { path: "/favorites", element: <FavoritesPageWithProtect /> },
+  { path: "/settings", element: <SettingsPageWithProtect /> },
   { path: "/", element: <Navigate to="/gallery" replace /> },
   { path: "*", element: <NotFound /> },
 ]);
@@ -43,6 +45,14 @@ function FavoritesPageWithProtect() {
   return (
     <ProtectedRoute>
       <FavoritesPage />
+    </ProtectedRoute>
+  );
+}
+
+function SettingsPageWithProtect() {
+  return (
+    <ProtectedRoute>
+      <SettingsPage />
     </ProtectedRoute>
   );
 }

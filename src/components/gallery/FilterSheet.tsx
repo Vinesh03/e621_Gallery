@@ -1,11 +1,9 @@
 import { useSettingsStore, useAuthStore, useSearchStore, SavedSearch } from '@/stores/appStore';
 import { RatingFilter, MediaFilter } from '@/types/e621';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { SlidersHorizontal, LogOut, Image, Film, Layers, ChevronDown, ChevronUp, Bookmark, Plus, X, Edit2, Check, RefreshCw } from 'lucide-react';
+import { SlidersHorizontal, LogOut, Image, Film, Layers, ChevronDown, ChevronUp, Bookmark, Plus, X, Edit2, Check, RefreshCw, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { ThemeCustomizer } from './ThemeCustomizer';
-import { AdvancedSettings } from './AdvancedSettings';
 import { useLanguage } from '@/hooks/use-language';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
@@ -23,7 +21,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   const { currentTags, setCurrentTags, savedSearches, addSavedSearch, removeSavedSearch, renameSavedSearch, updateSavedSearchTags } = useSearchStore();
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  
   const [showSavedSearches, setShowSavedSearches] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -258,16 +256,20 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
             )}
           </div>
 
-          {/* Advanced settings toggle */}
+          {/* Advanced settings link */}
           <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
+            onClick={() => {
+              onOpenChange?.(false);
+              navigate('/settings');
+            }}
             className="w-full p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors flex items-center justify-between"
           >
-            <span className="font-medium text-sm">{t('settings.advanced')}</span>
-            {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <div className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              <span className="font-medium text-sm">{t('settings.advanced')}</span>
+            </div>
+            <ChevronDown className="w-4 h-4 -rotate-90" />
           </button>
-          
-          {showAdvanced && <AdvancedSettings />}
 
           {/* Logout button */}
           {(credentials || isGuest) && (
