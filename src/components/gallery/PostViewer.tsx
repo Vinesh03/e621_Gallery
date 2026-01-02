@@ -75,6 +75,7 @@ export function PostViewer({
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
+  const infoScrollRef = useRef<HTMLDivElement>(null);
   const infoSwipeRef = useRef<{
     startX: number;
     startY: number;
@@ -692,57 +693,48 @@ export function PostViewer({
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3 }}
                       className="overflow-hidden border-t border-border flex flex-col"
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                        const t = e.touches[0];
+                        if (!t) return;
+                        startInfoSwipe(t.clientX, t.clientY, infoScrollRef.current?.scrollTop ?? 0);
+                      }}
+                      onTouchMove={(e) => {
+                        const t = e.touches[0];
+                        const s = infoSwipeRef.current;
+                        if (!t || !s) return;
+                        handleInfoSwipeMove(
+                          t.clientX - s.startX,
+                          t.clientY - s.startY,
+                          infoScrollRef.current?.scrollTop ?? 0
+                        );
+                      }}
+                      onTouchEnd={endInfoSwipe}
+                      onTouchCancel={endInfoSwipe}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        startInfoSwipe(e.clientX, e.clientY, infoScrollRef.current?.scrollTop ?? 0);
+                      }}
+                      onPointerMove={(e) => {
+                        const s = infoSwipeRef.current;
+                        if (!s) return;
+                        handleInfoSwipeMove(
+                          e.clientX - s.startX,
+                          e.clientY - s.startY,
+                          infoScrollRef.current?.scrollTop ?? 0
+                        );
+                      }}
+                      onPointerUp={endInfoSwipe}
+                      onPointerCancel={endInfoSwipe}
                     >
-                      {/* Drag handle area for gestures */}
-                      <motion.div
-                        className="flex justify-center py-3 bg-card cursor-grab active:cursor-grabbing touch-none"
-                        drag
-                        dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
-                        dragElastic={0.2}
-                        onDragEnd={(event, info) => {
-                          // Swipe down = close info
-                          if (info.offset.y > 50) {
-                            setMobileInfoExpanded(false);
-                          }
-                          // Horizontal swipe for navigation
-                          if (Math.abs(info.offset.x) > 80 && Math.abs(info.offset.y) < 50) {
-                            if (info.offset.x < 0 && hasNext && onNext) {
-                              onNext();
-                            } else if (info.offset.x > 0 && hasPrevious && onPrevious) {
-                              onPrevious();
-                            }
-                          }
-                        }}
-                      >
+                      {/* Drag handle area (visual) */}
+                      <div className="flex justify-center py-3 bg-card cursor-grab active:cursor-grabbing touch-none">
                         <div className="w-12 h-1 rounded-full bg-muted-foreground/50" />
-                      </motion.div>
-                      
+                      </div>
+
                       <div
+                        ref={infoScrollRef}
                         className="h-[40vh] overflow-y-auto p-4 space-y-4 bg-card"
-                        style={{ touchAction: 'pan-y' }}
-                        onTouchStart={(e) => {
-                          const t = e.touches[0];
-                          if (!t) return;
-                          startInfoSwipe(t.clientX, t.clientY, e.currentTarget.scrollTop);
-                        }}
-                        onTouchMove={(e) => {
-                          const t = e.touches[0];
-                          const s = infoSwipeRef.current;
-                          if (!t || !s) return;
-                          handleInfoSwipeMove(t.clientX - s.startX, t.clientY - s.startY, e.currentTarget.scrollTop);
-                        }}
-                        onTouchEnd={endInfoSwipe}
-                        onTouchCancel={endInfoSwipe}
-                        onPointerDown={(e) => {
-                          startInfoSwipe(e.clientX, e.clientY, e.currentTarget.scrollTop);
-                        }}
-                        onPointerMove={(e) => {
-                          const s = infoSwipeRef.current;
-                          if (!s) return;
-                          handleInfoSwipeMove(e.clientX - s.startX, e.clientY - s.startY, e.currentTarget.scrollTop);
-                        }}
-                        onPointerUp={endInfoSwipe}
-                        onPointerCancel={endInfoSwipe}
                       >
                         {/* Stats */}
                         <div className="space-y-2">
