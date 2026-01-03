@@ -7,6 +7,7 @@ import { PostViewer } from '@/components/gallery/PostViewer';
 import { toast } from 'sonner';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { PageTransition } from '@/components/PageTransition';
 
 export default function FavoritesPage() {
   const [favorites, setFavorites] = useState<E621Post[]>([]);
@@ -72,6 +73,7 @@ export default function FavoritesPage() {
   };
 
   return (
+    <PageTransition variant="fade">
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border">
@@ -128,5 +130,6 @@ export default function FavoritesPage() {
         hasNext={selectedIndex < favorites.length - 1}
       />
     </div>
+    </PageTransition>
   );
 }
