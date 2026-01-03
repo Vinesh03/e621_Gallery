@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Heart, LogOut, User, ChevronDown } from 'lucide-react';
+import { Heart, LogOut, User, ChevronDown, Settings } from 'lucide-react';
 
 export function UserMenu() {
   const { credentials, isGuest, logout } = useAuthStore();
@@ -29,7 +29,13 @@ export function UserMenu() {
       // Guest cannot access favorites
       return;
     }
+    setOpen(false);
     navigate('/favorites');
+  };
+
+  const handleSettings = () => {
+    setOpen(false);
+    navigate('/settings');
   };
 
   return (
@@ -52,6 +58,10 @@ export function UserMenu() {
             Preferiti
           </DropdownMenuItem>
         )}
+        <DropdownMenuItem onClick={handleSettings} className="cursor-pointer">
+          <Settings className="w-4 h-4 mr-2" />
+          Impostazioni avanzate
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
           <LogOut className="w-4 h-4 mr-2" />
           {isGuest ? 'Accedi' : 'Esci'}
