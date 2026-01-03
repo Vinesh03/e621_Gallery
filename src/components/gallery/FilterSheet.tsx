@@ -1,7 +1,7 @@
 import { useSettingsStore, useAuthStore, useSearchStore, SavedSearch } from '@/stores/appStore';
 import { RatingFilter, MediaFilter } from '@/types/e621';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { SlidersHorizontal, LogOut, Image, Film, Layers, ChevronDown, ChevronUp, Bookmark, Plus, X, Edit2, Check, RefreshCw, Settings } from 'lucide-react';
+import { SlidersHorizontal, LogOut, Image, Film, Layers, ChevronDown, ChevronUp, Bookmark, Plus, X, Edit2, Check, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/hooks/use-language';
@@ -262,21 +262,6 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
               </div>
             )}
           </div>
-
-          {/* Advanced settings link */}
-          <button
-            onClick={() => {
-              handleOpenChange(false);
-              navigate('/settings');
-            }}
-            className="w-full p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              <span className="font-medium text-sm">{t('settings.advanced')}</span>
-            </div>
-            <ChevronDown className="w-4 h-4 -rotate-90" />
-          </button>
 
           {/* Logout button */}
           {(credentials || isGuest) && (
