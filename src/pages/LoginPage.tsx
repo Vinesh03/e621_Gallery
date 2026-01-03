@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { User, Key, Loader2, Trash2, LogIn, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PageTransition } from '@/components/PageTransition';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -50,6 +51,7 @@ export default function LoginPage() {
   const hasSavedAccounts = savedAccounts.length > 0;
 
   return (
+    <PageTransition variant="fade">
     <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden">
@@ -265,5 +267,6 @@ export default function LoginPage() {
         </div>
       </motion.div>
     </div>
+    </PageTransition>
   );
 }

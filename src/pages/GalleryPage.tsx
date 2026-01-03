@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { LayoutGrid, Play, RefreshCw } from 'lucide-react';
 import { UserMenu } from '@/components/gallery/UserMenu';
 import { AnimatePresence, motion } from 'framer-motion';
+import { PageTransition } from '@/components/PageTransition';
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -390,12 +391,12 @@ export default function GalleryPage() {
   };
 
   return (
-    <>
+    <PageTransition variant="fade">
       <AnimatePresence>
         {showSplash && <SplashScreen />}
       </AnimatePresence>
 
-      <div 
+      <div
         ref={contentRef}
         className="min-h-screen bg-background overflow-y-auto"
         onTouchStart={viewMode === 'gallery' ? handleTouchStart : undefined}
@@ -512,6 +513,6 @@ export default function GalleryPage() {
         hasNext={selectedIndex < posts.length - 1}
       />
       </div>
-    </>
+    </PageTransition>
   );
 }
