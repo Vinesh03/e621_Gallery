@@ -21,7 +21,13 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   const { currentTags, setCurrentTags, savedSearches, addSavedSearch, removeSavedSearch, renameSavedSearch, updateSavedSearchTags } = useSearchStore();
   const { t } = useLanguage();
   const navigate = useNavigate();
-  
+
+  // Support both controlled and uncontrolled usage.
+  // When uncontrolled, we still need a way to close the sheet before navigating.
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isOpen ?? internalOpen;
+  const handleOpenChange = onOpenChange ?? setInternalOpen;
+
   const [showSavedSearches, setShowSavedSearches] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -40,6 +46,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   ];
 
   const handleLogout = () => {
+    handleOpenChange(false);
     logout();
     navigate('/');
   };
@@ -56,7 +63,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   const handleLoadSearch = (search: SavedSearch) => {
     // Import saved search tags to search bar
     setCurrentTags(search.tags);
-    onOpenChange?.(false);
+    handleOpenChange(false);
   };
 
   const handleOverwriteSearch = (id: string) => {
@@ -83,8 +90,8 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      {!isOpen && onOpenChange === undefined && (
+    <Sheet open={open} onOpenChange={handleOpenChange}>
+      {isOpen === undefined && onOpenChange === undefined && (
         <SheetTrigger asChild>
           <button className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
             <SlidersHorizontal className="w-5 h-5" />
@@ -259,7 +266,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
           {/* Advanced settings link */}
           <button
             onClick={() => {
-              onOpenChange?.(false);
+              handleOpenChange(false);
               navigate('/settings');
             }}
             className="w-full p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors flex items-center justify-between"
