@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSettingsStore, useSearchStore, DownloadFolder } from '@/stores/appStore';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { HardDrive, Trash2, Moon, Sun, Monitor, FolderDown, Folder } from 'lucide-react';
+import { HardDrive, Trash2, Moon, Sun, Monitor, FolderDown, Folder, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/hooks/use-language';
 import { ThemeCustomizer } from './ThemeCustomizer';
@@ -36,7 +36,7 @@ function formatStorageSize(mb: number): string {
 }
 
 export function AdvancedSettings() {
-  const { storageLimitMB, setStorageLimitMB, themeMode, setThemeMode, downloadFolder, setDownloadFolder } = useSettingsStore();
+  const { storageLimitMB, setStorageLimitMB, themeMode, setThemeMode, downloadFolder, setDownloadFolder, preloadContent, setPreloadContent } = useSettingsStore();
   const { clearCache } = useSearchStore();
   const { t } = useLanguage();
   
@@ -175,6 +175,46 @@ export function AdvancedSettings() {
             );
           })}
         </div>
+      </div>
+
+      {/* Preload content toggle */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-muted-foreground" />
+          <h4 className="font-medium text-sm">Precaricamento Contenuti</h4>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Precarica video e post in background per un'esperienza più fluida
+        </p>
+        <button
+          onClick={() => {
+            setPreloadContent(!preloadContent);
+            toast.success(preloadContent ? 'Precaricamento disattivato' : 'Precaricamento attivato');
+          }}
+          className={cn(
+            "w-full p-3 rounded-lg flex items-center justify-between transition-colors",
+            preloadContent
+              ? "bg-primary text-primary-foreground"
+              : "bg-secondary hover:bg-secondary/80"
+          )}
+        >
+          <span className="text-sm font-medium">
+            {preloadContent ? 'Attivo' : 'Disattivato'}
+          </span>
+          <div
+            className={cn(
+              "w-12 h-6 rounded-full transition-colors relative",
+              preloadContent ? "bg-primary-foreground/30" : "bg-muted"
+            )}
+          >
+            <div
+              className={cn(
+                "absolute top-0.5 left-0.5 w-5 h-5 rounded-full transition-transform bg-background",
+                preloadContent && "transform translate-x-6"
+              )}
+            />
+          </div>
+        </button>
       </div>
       
       {/* Storage limit */}

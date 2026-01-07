@@ -48,7 +48,7 @@ export default function GalleryPage() {
   const touchStartY = useRef<number>(0);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const { ratingFilter, mediaFilter, viewMode, setViewMode, hasShownInitialSplash, setHasShownInitialSplash } = useSettingsStore();
+  const { ratingFilter, mediaFilter, viewMode, setViewMode, hasShownInitialSplash, setHasShownInitialSplash, preloadContent } = useSettingsStore();
   const { currentTags, setCurrentTags, getCachedPosts, setCachedPosts } = useSearchStore();
   const { credentials, isGuest, isFirstLogin, setNotFirstLogin } = useAuthStore();
 
@@ -207,9 +207,9 @@ export default function GalleryPage() {
     }
   }, [ratingFilter]);
 
-  // Preload Shorts in background when app starts
+  // Preload Shorts in background when app starts (only if enabled in settings)
   const preloadShorts = useCallback(async () => {
-    if (shortsPreloadedRef.current) return;
+    if (shortsPreloadedRef.current || !preloadContent) return;
     
     shortsPreloadedRef.current = true;
     console.log('[preloadShorts] Starting background preload of Shorts videos');
@@ -233,7 +233,7 @@ export default function GalleryPage() {
       console.error('[preloadShorts] Failed to preload Shorts:', error);
       // Don't show error toast for background preload failures
     }
-  }, [currentTags, ratingFilter]);
+  }, [currentTags, ratingFilter, preloadContent]);
 
   // Track if this is first render
   const isFirstRenderRef = useRef(true);
@@ -249,8 +249,8 @@ export default function GalleryPage() {
       pageRef.current = 1;
       fetchPosts(currentTags, 1, false, isFirstRenderRef.current);
       
-      // Preload Shorts in background only on first load
-      if (isFirstRenderRef.current) {
+      // Preload Shorts in background only on first load and if enabled
+      if (isFirstRenderRef.current && preloadContent) {
         preloadShorts();
       }
     } else {
@@ -264,7 +264,7 @@ export default function GalleryPage() {
       }
     }
     isFirstRenderRef.current = false;
-  }, [currentTags, ratingFilter, mediaFilter, viewMode, fetchPosts, fetchShortsPosts, preloadShorts, shortsPosts.length]);
+  }, [currentTags, ratingFilter, mediaFilter, viewMode, fetchPosts, fetchShortsPosts, preloadShorts, shortsPosts.length, preloadContent]);
 
   const handleSearch = (tags: string) => {
     setCurrentTags(tags);

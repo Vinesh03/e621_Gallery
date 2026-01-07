@@ -273,6 +273,13 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
               <span className="font-medium text-sm">{isGuest ? t('action.login') : t('action.logout')}</span>
             </button>
           )}
+          
+          {/* Developer signature */}
+          <div className="pt-4 mt-4 border-t border-border">
+            <p className="text-center text-xs text-muted-foreground/60">
+              Built with <span className="text-red-500 animate-pulse">❤️</span> by <span className="font-semibold text-muted-foreground">SheetSeeker1486</span>
+            </p>
+          </div>
         </div>
       </SheetContent>
     </Sheet>
