@@ -1,4 +1,4 @@
-name: Build and Sync Web Assets to Android
+name: Build Web Assets
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     paths:
       - 'src/**'
       - 'package.json'
-      - '.github/workflows/build-and-sync.yml'
+      - '.github/workflows/build.yml'
 
 jobs:
   build:
@@ -16,9 +16,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          ref: dev
-          token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -31,14 +28,11 @@ jobs:
       - name: Build web assets
         run: npm run build
       
-      - name: Commit and push dist folder
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add dist
-          if git diff --cached --quiet; then
-            echo "No changes in dist folder"
-          else
-            git commit -m "chore: update compiled web assets for Android [skip ci]"
-            git push origin dev
-          fi
+      - name: Auto Commit and Push
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'chore: update web assets build [skip ci]'
+          file_pattern: 'dist/**'
+          repository: .
+          commit_user_name: 'github-actions[bot]'
+          commit_user_email: '41898282+github-actions[bot]@users.noreply.github.com'
