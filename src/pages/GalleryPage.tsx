@@ -54,6 +54,9 @@ export default function GalleryPage() {
 
   // Show splash only on first app load
   const [showSplash, setShowSplash] = useState(!hasShownInitialSplash);
+  
+  // Ref to track if Shorts have been preloaded
+  const shortsPreloadedRef = useRef(false);
 
   // Hide splash after 2 seconds and mark as shown
   useEffect(() => {
@@ -204,6 +207,34 @@ export default function GalleryPage() {
     }
   }, [ratingFilter]);
 
+  // Preload Shorts in background when app starts
+  const preloadShorts = useCallback(async () => {
+    if (shortsPreloadedRef.current) return;
+    
+    shortsPreloadedRef.current = true;
+    console.log('[preloadShorts] Starting background preload of Shorts videos');
+    
+    try {
+      // Wait a bit to let the gallery load first (better UX)
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const tags = currentTags ? `${currentTags} type:webm` : 'type:webm';
+      const preloadedPosts = await e621Api.searchPosts({
+        tags: tags,
+        limit: 20,
+        page: 1,
+        rating: ratingFilter,
+      });
+      
+      setShortsPosts(preloadedPosts);
+      setHasMoreShorts(preloadedPosts.length === 20);
+      console.log('[preloadShorts] Successfully preloaded', preloadedPosts.length, 'Shorts videos');
+    } catch (error) {
+      console.error('[preloadShorts] Failed to preload Shorts:', error);
+      // Don't show error toast for background preload failures
+    }
+  }, [currentTags, ratingFilter]);
+
   // Track if this is first render
   const isFirstRenderRef = useRef(true);
   // Ref to prevent concurrent fetches from triggering duplicated page requests
@@ -217,16 +248,28 @@ export default function GalleryPage() {
       setPage(1);
       pageRef.current = 1;
       fetchPosts(currentTags, 1, false, isFirstRenderRef.current);
+      
+      // Preload Shorts in background only on first load
+      if (isFirstRenderRef.current) {
+        preloadShorts();
+      }
     } else {
-      setShortsPage(1);
-      shortsPageRef.current = 1;
-      fetchShortsPosts(currentTags, 1, false);
+      // When switching to Shorts, only fetch if we don't have preloaded data
+      if (shortsPosts.length === 0) {
+        setShortsPage(1);
+        shortsPageRef.current = 1;
+        fetchShortsPosts(currentTags, 1, false);
+      } else {
+        console.log('[viewMode:shorts] Using preloaded Shorts data');
+      }
     }
     isFirstRenderRef.current = false;
-  }, [currentTags, ratingFilter, mediaFilter, viewMode, fetchPosts, fetchShortsPosts]);
+  }, [currentTags, ratingFilter, mediaFilter, viewMode, fetchPosts, fetchShortsPosts, preloadShorts, shortsPosts.length]);
 
   const handleSearch = (tags: string) => {
     setCurrentTags(tags);
+    // Reset preload flag when search changes so Shorts reload with new tags
+    shortsPreloadedRef.current = false;
   };
 
   const handleLoadMore = async () => {
