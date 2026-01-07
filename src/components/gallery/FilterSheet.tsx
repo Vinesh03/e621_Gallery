@@ -23,7 +23,6 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   const navigate = useNavigate();
 
   // Support both controlled and uncontrolled usage.
-  // When uncontrolled, we still need a way to close the sheet before navigating.
   const [internalOpen, setInternalOpen] = useState(false);
   const open = isOpen ?? internalOpen;
   const handleOpenChange = onOpenChange ?? setInternalOpen;
@@ -61,7 +60,6 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   };
 
   const handleLoadSearch = (search: SavedSearch) => {
-    // Import saved search tags to search bar
     setCurrentTags(search.tags);
     handleOpenChange(false);
   };
@@ -98,13 +96,13 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
           </button>
         </SheetTrigger>
       )}
-      <SheetContent className="bg-background border-border flex flex-col p-0">
+      <SheetContent className="bg-background border-border flex flex-col p-0 h-screen">
         <div className="p-6 pb-0">
           <SheetHeader>
             <SheetTitle>{t('filter.title')}</SheetTitle>
           </SheetHeader>
         </div>
-        
+
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto px-6">
           <div className="mt-6 space-y-6 pb-4">
@@ -124,12 +122,14 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
                     )}
                   >
                     <div className="font-medium text-sm">{option.label}</div>
-                    <div className={cn(
-                      "text-xs mt-0.5",
-                      ratingFilter === option.value
-                        ? "text-primary-foreground/70"
-                        : "text-muted-foreground"
-                    )}>
+                    <div
+                      className={cn(
+                        "text-xs mt-0.5",
+                        ratingFilter === option.value
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground"
+                      )}
+                    >
                       {option.description}
                     </div>
                   </button>
@@ -174,10 +174,9 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
                 </div>
                 {showSavedSearches ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
-              
+
               {showSavedSearches && (
                 <div className="space-y-2">
-                  {/* Save current search button */}
                   {currentTags.trim() && (
                     <Button
                       variant="outline"
@@ -188,8 +187,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
                       {t('saved.save')}
                     </Button>
                   )}
-                  
-                  {/* List of saved searches */}
+
                   {savedSearches.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-2">
                       {t('saved.empty.list')}
@@ -232,7 +230,6 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
                                   </div>
                                 )}
                               </button>
-                              {/* Overwrite button - only show if current tags exist and differ */}
                               {currentTags.trim() && currentTags !== search.tags && (
                                 <button
                                   onClick={() => handleOverwriteSearch(search.id)}
@@ -266,20 +263,20 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
                 </div>
               )}
             </div>
-
-            {/* Logout button */}
-            {(credentials || isGuest) && (
-              <button
-                onClick={handleLogout}
-                className="w-full p-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="font-medium text-sm">{isGuest ? t('action.login') : t('action.logout')}</span>
-              </button>
-            )}
           </div>
         </div>
-        
+
+        {/* Logout button - always visible, separate from scrollable content */}
+        {(credentials || isGuest) && (
+          <button
+            onClick={handleLogout}
+            className="mx-6 mb-6 w-[calc(100%-3rem)] p-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="font-medium text-sm">{isGuest ? t('action.login') : t('action.logout')}</span>
+          </button>
+        )}
+
         {/* Developer signature - Fixed at bottom, always visible */}
         <div className="border-t border-border px-6 py-4 bg-background">
           <p className="text-center text-xs text-muted-foreground/60">
