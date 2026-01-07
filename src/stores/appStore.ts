@@ -42,6 +42,7 @@ interface SettingsState {
   hasShownInitialSplash: boolean; // Track if splash has been shown this session
   storageLimitMB: number; // Storage limit in megabytes (GLOBAL, not per-user)
   downloadFolder: DownloadFolder; // Download folder setting
+  preloadContent: boolean; // Enable/disable content preloading
   
   setRatingFilter: (filter: RatingFilter) => void;
   setMediaFilter: (filter: MediaFilter) => void;
@@ -54,6 +55,7 @@ interface SettingsState {
   setHasShownInitialSplash: (shown: boolean) => void;
   setStorageLimitMB: (limit: number) => void;
   setDownloadFolder: (folder: DownloadFolder) => void;
+  setPreloadContent: (enabled: boolean) => void;
 }
 
 interface CachedPosts {
@@ -385,6 +387,7 @@ export const useSettingsStore = create<SettingsState>()(
       hasShownInitialSplash: false,
       storageLimitMB: 500, // Kept for compatibility but use useGlobalSettingsStore
       downloadFolder: 'downloads' as DownloadFolder, // Default to downloads folder
+      preloadContent: true, // Preload content by default
 
       setRatingFilter: (filter) => set({ ratingFilter: filter }),
       setMediaFilter: (filter) => set({ mediaFilter: filter }),
@@ -405,13 +408,14 @@ export const useSettingsStore = create<SettingsState>()(
         set({ storageLimitMB: limit });
       },
       setDownloadFolder: (folder) => set({ downloadFolder: folder }),
+      setPreloadContent: (enabled) => set({ preloadContent: enabled }),
     }),
     {
       name: 'e6-settings',
       storage: createJSONStorage(() => createUserStorage()),
-      version: 7,
+      version: 8,
       migrate: (persistedState: any, version: number) => {
-        if (version < 7 && persistedState && typeof persistedState === 'object') {
+        if (version < 8 && persistedState && typeof persistedState === 'object') {
           return {
             ...persistedState,
             ratingFilter: persistedState.ratingFilter ?? 'sqe',
@@ -419,6 +423,7 @@ export const useSettingsStore = create<SettingsState>()(
             hasShownInitialSplash: false,
             storageLimitMB: persistedState.storageLimitMB ?? 500,
             downloadFolder: persistedState.downloadFolder ?? 'downloads',
+            preloadContent: persistedState.preloadContent ?? true,
           };
         }
         return persistedState;
@@ -662,6 +667,7 @@ const reloadUserStores = () => {
         hasShownInitialSplash: false,
         storageLimitMB: 500,
         downloadFolder: 'downloads',
+        preloadContent: true,
       });
     }
   } else {
@@ -679,6 +685,7 @@ const reloadUserStores = () => {
       hasShownInitialSplash: false,
       storageLimitMB: 500,
       downloadFolder: 'downloads',
+      preloadContent: true,
     });
   }
   
