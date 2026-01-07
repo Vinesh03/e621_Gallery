@@ -98,12 +98,12 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
           </button>
         </SheetTrigger>
       )}
-      <SheetContent className="bg-background border-border overflow-y-auto">
+      <SheetContent className="bg-background border-border overflow-y-auto flex flex-col">
         <SheetHeader>
           <SheetTitle>{t('filter.title')}</SheetTitle>
         </SheetHeader>
         
-        <div className="mt-6 space-y-6">
+        <div className="mt-6 space-y-6 flex-1">
           {/* Rating filter */}
           <div className="space-y-3">
             <h3 className="font-medium text-sm">{t('filter.rating')}</h3>
@@ -273,13 +273,13 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
               <span className="font-medium text-sm">{isGuest ? t('action.login') : t('action.logout')}</span>
             </button>
           )}
-          
-          {/* Developer signature */}
-          <div className="pt-4 mt-4 border-t border-border">
-            <p className="text-center text-xs text-muted-foreground/60">
-              Built with <span className="text-red-500 animate-pulse">❤️</span> by <span className="font-semibold text-muted-foreground">SheetSeeker1486</span>
-            </p>
-          </div>
+        </div>
+        
+        {/* Developer signature - Always visible at the bottom, outside the main content div */}
+        <div className="pt-4 pb-2 border-t border-border mt-auto">
+          <p className="text-center text-xs text-muted-foreground/60">
+            Built with <span className="text-red-500 animate-pulse">❤️</span> by <span className="font-semibold text-muted-foreground">SheetSeeker1486</span>
+          </p>
         </div>
       </SheetContent>
     </Sheet>
