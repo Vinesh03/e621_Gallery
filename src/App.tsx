@@ -15,7 +15,7 @@ const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
   { path: "/gallery", element: <GalleryPageWithProtect /> },
   { path: "/favorites", element: <FavoritesPageWithProtect /> },
-  { path: "/settings", element: <SettingsPageWithProtect /> },
+  { path: "/settings", element: <SettingsPage /> },
   { path: "/", element: <Navigate to="/gallery" replace /> },
   { path: "*", element: <NotFound /> },
 ]);
@@ -49,13 +49,6 @@ function FavoritesPageWithProtect() {
   );
 }
 
-function SettingsPageWithProtect() {
-  return (
-    <ProtectedRoute>
-      <SettingsPage />
-    </ProtectedRoute>
-  );
-}
 
 // AppContent removed - using RouterProvider instead
 
