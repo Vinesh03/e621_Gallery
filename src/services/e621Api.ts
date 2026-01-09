@@ -300,64 +300,80 @@ class E621Api {
   }
 
   /**
-   * Best URL for actually playing a video.
-   * CRITICAL: Always prefer MP4 transcodes over WebM to prevent Android crashes.
-   * Priority order:
-   * 1. 480p MP4 sample (best compatibility, smaller size)
-   * 2. 720p MP4 sample (good quality, still compatible) 
-   * 3. MP4 variant (alternative MP4 encoding)
-   * 4. Original file (ONLY if it's already MP4, never WebM)
+   * Get playback URL for video posts.
+   * CRITICAL STRATEGY: Prefer original MP4 files for maximum compatibility.
+   * Only search for alternatives if the original is WebM.
    * 
-   * Never return WebM URLs as they cause crashes on many Android devices.
+   * Priority:
+   * 1. Original file if MP4 (most reliable)
+   * 2. If WebM, look for 480p MP4 alternate
+   * 3. If WebM, look for 720p MP4 alternate
+   * 4. If WebM, look for any MP4 variant
+   * 5. Return null if only WebM available (to prevent crashes)
    */
   getVideoPlaybackUrl(post: E621Post): string | null {
     const ext = (post.file.ext || '').toLowerCase();
     
     // Only process video files
     if (ext !== 'webm' && ext !== 'mp4') {
-      console.log(`Post ${post.id}: Not a video file (ext: ${ext})`);
+      console.log(`[Video] Post ${post.id}: Not a video (ext: ${ext})`);
       return null;
     }
 
+    // FIRST: If original is MP4, use it directly (most reliable)
+    if (ext === 'mp4' && post.file.url) {
+      console.log(`[Video] Post ${post.id}: Using original MP4 file`);
+      console.log(`[Video] URL: ${post.file.url}`);
+      return post.file.url;
+    }
+
+    // If we're here, the original is WebM, try to find MP4 alternatives
+    console.log(`[Video] Post ${post.id}: Original is WebM, searching for MP4 alternatives...`);
+    
     const alternates = post.sample.alternates;
     
     if (!alternates) {
-      console.log(`Post ${post.id}: No alternates available`);
-      // If original is MP4, we can use it
-      if (ext === 'mp4') {
-        console.log(`Post ${post.id}: Using original MP4 file`);
-        return post.file.url;
-      }
+      console.warn(`[Video] Post ${post.id}: No alternates available for WebM file`);
       return null;
     }
 
-    // Try to get MP4 alternatives in order of preference
-    // Check samples object for 480p and 720p
-    const samples = alternates.samples;
-    const mp4_480 = samples?.['480p']?.url;
-    const mp4_720 = samples?.['720p']?.url;
-    
-    // Check variants for MP4
-    const mp4_variant = alternates.variants?.mp4?.url;
-    
-    // Check original alternate (might be different from file.url)
-    const original_alternate = alternates.original?.url;
-    
-    // Fallback to file.url only if it's MP4
-    const originalMp4 = ext === 'mp4' ? post.file.url : null;
+    console.log(`[Video] Post ${post.id}: Alternates structure:`, JSON.stringify(alternates, null, 2));
 
-    // Return first available MP4 URL
-    const videoUrl = mp4_480 || mp4_720 || mp4_variant || original_alternate || originalMp4;
-    
-    if (!videoUrl) {
-      console.warn(`Post ${post.id}: No compatible MP4 video found. Original format: ${ext}`);
-      console.warn(`Post ${post.id}: Alternates:`, JSON.stringify(alternates, null, 2));
-    } else {
-      const source = mp4_480 ? '480p' : mp4_720 ? '720p' : mp4_variant ? 'variant' : original_alternate ? 'original-alt' : 'original-file';
-      console.log(`Post ${post.id}: Using ${source} MP4 video`);
+    // Try different paths for MP4 alternatives
+    // Check samples object for 480p and 720p
+    let videoUrl: string | null = null;
+    let source = '';
+
+    // Check for 480p in samples
+    if (alternates['480p']?.url) {
+      videoUrl = alternates['480p'].url;
+      source = '480p';
+    }
+    // Check for 720p in samples
+    else if (alternates['720p']?.url) {
+      videoUrl = alternates['720p'].url;
+      source = '720p';
+    }
+    // Check for original in alternates
+    else if (alternates.original?.url) {
+      videoUrl = alternates.original.url;
+      source = 'original alternate';
+    }
+    // Check for MP4 variant
+    else if (alternates.variants?.mp4?.url) {
+      videoUrl = alternates.variants.mp4.url;
+      source = 'MP4 variant';
     }
     
-    return videoUrl;
+    if (videoUrl) {
+      console.log(`[Video] Post ${post.id}: Found ${source} MP4`);
+      console.log(`[Video] URL: ${videoUrl}`);
+      return videoUrl;
+    }
+
+    console.warn(`[Video] Post ${post.id}: ❌ No MP4 alternatives found for WebM file`);
+    console.warn(`[Video] Post ${post.id}: Available alternates keys:`, Object.keys(alternates));
+    return null;
   }
 }
 
