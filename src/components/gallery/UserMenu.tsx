@@ -46,7 +46,7 @@ export function UserMenu() {
           <ChevronDown className="w-4 h-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-48 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200">
         <div className="px-2 py-1.5 text-sm font-medium flex items-center gap-2">
           <User className="w-4 h-4" />
           {displayName}
