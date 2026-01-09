@@ -573,28 +573,29 @@ export function PostViewer({
                           <div
                             className="relative cursor-pointer group"
                             onClick={async () => {
-                              const videoUrl = e621Api.getVideoPlaybackUrl(localPost) || e621Api.getDownloadUrl(localPost);
-                              if (!videoUrl) return;
+                              const playbackUrl = e621Api.getVideoPlaybackUrl(localPost);
+                              if (!playbackUrl) {
+                                toast.error('Formato video non supportato sul dispositivo');
+                                return;
+                              }
 
-                              const urlType = videoUrl.includes('_720p')
+                              const urlType = playbackUrl.includes('_720p')
                                 ? '720p'
-                                : videoUrl.includes('_480p')
+                                : playbackUrl.includes('_480p')
                                   ? '480p'
-                                  : videoUrl.includes('_alt.mp4')
+                                  : playbackUrl.includes('_alt.mp4')
                                     ? 'MP4'
-                                    : videoUrl.endsWith('.webm')
-                                      ? 'WebM (originale)'
-                                      : 'Sconosciuto';
+                                    : 'MP4';
 
                               try {
-                                const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${localPost.id}`);
+                                const success = await nativeVideoPlayer.playFullscreen(playbackUrl, `Post #${localPost.id}`);
                                 if (!success) {
-                                  setInAppVideoUrl(videoUrl);
+                                  setInAppVideoUrl(playbackUrl);
                                   toast.info(`Riproduzione integrata (${urlType})`);
                                 }
                               } catch (err) {
                                 console.error(err);
-                                setInAppVideoUrl(videoUrl);
+                                setInAppVideoUrl(playbackUrl);
                                 toast.error(`Riproduzione integrata (${urlType})`, {
                                   description: err instanceof Error ? err.message : String(err),
                                 });
@@ -1055,28 +1056,29 @@ export function PostViewer({
                           <div
                             className="relative cursor-pointer group"
                             onClick={async () => {
-                              const videoUrl = e621Api.getVideoPlaybackUrl(localPost) || e621Api.getDownloadUrl(localPost);
-                              if (!videoUrl) return;
+                              const playbackUrl = e621Api.getVideoPlaybackUrl(localPost);
+                              if (!playbackUrl) {
+                                toast.error('Formato video non supportato sul dispositivo');
+                                return;
+                              }
 
-                              const urlType = videoUrl.includes('_720p')
+                              const urlType = playbackUrl.includes('_720p')
                                 ? '720p'
-                                : videoUrl.includes('_480p')
+                                : playbackUrl.includes('_480p')
                                   ? '480p'
-                                  : videoUrl.includes('_alt.mp4')
+                                  : playbackUrl.includes('_alt.mp4')
                                     ? 'MP4'
-                                    : videoUrl.endsWith('.webm')
-                                      ? 'WebM (originale)'
-                                      : 'Sconosciuto';
+                                    : 'MP4';
 
                               try {
-                                const success = await nativeVideoPlayer.playFullscreen(videoUrl, `Post #${localPost.id}`);
+                                const success = await nativeVideoPlayer.playFullscreen(playbackUrl, `Post #${localPost.id}`);
                                 if (!success) {
-                                  setInAppVideoUrl(videoUrl);
+                                  setInAppVideoUrl(playbackUrl);
                                   toast.info(`Riproduzione integrata (${urlType})`);
                                 }
                               } catch (err) {
                                 console.error(err);
-                                setInAppVideoUrl(videoUrl);
+                                setInAppVideoUrl(playbackUrl);
                                 toast.error(`Riproduzione integrata (${urlType})`, {
                                   description: err instanceof Error ? err.message : String(err),
                                 });
