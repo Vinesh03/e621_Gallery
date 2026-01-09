@@ -205,6 +205,8 @@ export function PostViewer({
   const isVideo = localPost.file.ext === 'webm' || localPost.file.ext === 'mp4';
   const mediaUrl = e621Api.getSampleUrl(localPost) || e621Api.getDownloadUrl(localPost);
   const downloadUrl = e621Api.getDownloadUrl(localPost);
+  // Use sample URL for video playback - same as ShortsViewer
+  const videoUrl = localPost.sample?.url || localPost.file.url;
   const e621Url = `https://e621.net/posts/${localPost.id}`;
 
   const handleDownload = async () => {
@@ -444,12 +446,12 @@ export function PostViewer({
     );
   };
 
-  // Video player component - SAME AS SHORTSVIEWER
+  // Video player component - Uses sample URL like ShortsViewer
   const VideoPlayer = () => (
     <div className="relative w-full h-full flex items-center justify-center bg-black">
       <video
         ref={videoRef}
-        src={downloadUrl || ''}
+        src={videoUrl || ''}
         className="w-full h-full object-contain"
         controls
         autoPlay
@@ -544,8 +546,7 @@ export function PostViewer({
                 dragDirectionLock
                 dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
                 dragElastic={0.2}
-                onDragEnd={handleDragEnd}
-              >
+                onDragEnd={handleDragEnd}>
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={localPost.id}
