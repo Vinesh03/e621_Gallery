@@ -4,7 +4,7 @@ import { useSearchStore, useAuthStore, useUserInteractionsStore, useSettingsStor
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { X, Download, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle, Star, Loader2, Share2 } from 'lucide-react';
+import { X, Download, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle, Star, Loader2, Share2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
@@ -62,6 +62,7 @@ export function PostViewer({
   const [pendingTagChanges, setPendingTagChanges] = useState<Set<string>>(new Set());
   const [mobileInfoExpanded, setMobileInfoExpanded] = useState(false);
   const [inAppVideoUrl, setInAppVideoUrl] = useState<string | null>(null);
+  const [videoNotSupported, setVideoNotSupported] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
@@ -191,6 +192,7 @@ export function PostViewer({
     setPendingTagChanges(new Set());
     setMobileInfoExpanded(false);
     setInAppVideoUrl(null);
+    setVideoNotSupported(false);
     setShowComments(false);
     setIsVideoLoading(false);
   }, [post?.id]);
@@ -395,8 +397,15 @@ export function PostViewer({
 
   const handlePlayVideo = () => {
     const playbackUrl = e621Api.getVideoPlaybackUrl(localPost);
+    
     if (!playbackUrl) {
-      toast.error('Formato video non supportato');
+      console.error('No playback URL available for post:', localPost.id);
+      console.error('Post file ext:', localPost.file.ext);
+      console.error('Post alternates:', localPost.sample.alternates);
+      setVideoNotSupported(true);
+      toast.error('Video non compatibile', {
+        description: 'Formato WebM senza conversione MP4 disponibile',
+      });
       return;
     }
 
@@ -410,6 +419,7 @@ export function PostViewer({
 
     setIsVideoLoading(true);
     setInAppVideoUrl(playbackUrl);
+    setVideoNotSupported(false);
     toast.info(`Caricamento video (${urlType})`);
   };
 
@@ -478,6 +488,31 @@ export function PostViewer({
     );
   };
 
+  // Video error/unsupported component
+  const VideoUnsupported = () => (
+    <div className="relative w-full h-full flex flex-col items-center justify-center gap-4 p-8">
+      <img
+        src={localPost.preview.url || localPost.sample?.url || ''}
+        alt={`Video preview ${localPost.id}`}
+        className="max-w-full max-h-[40vh] object-contain opacity-50"
+      />
+      <div className="flex flex-col items-center gap-2 text-center">
+        <AlertCircle className="w-8 h-8 text-destructive" />
+        <h3 className="font-semibold text-lg">Video non riproducibile</h3>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Questo video è in formato WebM senza conversione MP4. Android non supporta WebM nativamente.
+        </p>
+        <Button
+          onClick={handleOpenOnE621}
+          className="mt-4 flex items-center gap-2"
+        >
+          <ExternalLink className="w-4 h-4" />
+          Guarda su e621.net
+        </Button>
+      </div>
+    </div>
+  );
+
   // Video player component for reuse
   const VideoPlayer = () => (
     <div className="relative w-full h-full flex items-center justify-center">
@@ -509,6 +544,7 @@ export function PostViewer({
           setIsVideoLoading(false);
           toast.error('Errore nel caricamento del video');
           setInAppVideoUrl(null);
+          setVideoNotSupported(true);
         }}
       />
     </div>
@@ -633,7 +669,13 @@ export function PostViewer({
 
                     {isVideo ? (
                       <div className="relative flex items-center justify-center w-full h-full">
-                        {inAppVideoUrl ? <VideoPlayer /> : <VideoThumbnail />}
+                        {videoNotSupported ? (
+                          <VideoUnsupported />
+                        ) : inAppVideoUrl ? (
+                          <VideoPlayer />
+                        ) : (
+                          <VideoThumbnail />
+                        )}
                       </div>
                     ) : (
                       <img
@@ -1048,7 +1090,9 @@ export function PostViewer({
                   >
                     {isVideo ? (
                       <div className="flex flex-col items-center gap-4">
-                        {inAppVideoUrl ? (
+                        {videoNotSupported ? (
+                          <VideoUnsupported />
+                        ) : inAppVideoUrl ? (
                           <div className="relative w-full flex items-center justify-center">
                             <video
                               key={inAppVideoUrl}
@@ -1069,6 +1113,7 @@ export function PostViewer({
                                 setIsVideoLoading(false);
                                 toast.error('Video non riproducibile');
                                 setInAppVideoUrl(null);
+                                setVideoNotSupported(true);
                               }}
                             />
                             {isVideoLoading && (
