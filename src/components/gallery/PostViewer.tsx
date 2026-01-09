@@ -396,31 +396,33 @@ export function PostViewer({
   };
 
   const handlePlayVideo = () => {
+    console.log('=== VIDEO PLAYBACK ATTEMPT ===');
+    console.log('Post ID:', localPost.id);
+    console.log('File ext:', localPost.file.ext);
+    
     const playbackUrl = e621Api.getVideoPlaybackUrl(localPost);
     
     if (!playbackUrl) {
-      console.error('No playback URL available for post:', localPost.id);
-      console.error('Post file ext:', localPost.file.ext);
-      console.error('Post alternates:', localPost.sample.alternates);
+      console.error('❌ No playback URL available');
       setVideoNotSupported(true);
       toast.error('Video non compatibile', {
-        description: 'Formato WebM senza conversione MP4 disponibile',
+        description: 'Nessun formato MP4 disponibile per questo video',
+        duration: 5000,
       });
       return;
     }
 
-    const urlType = playbackUrl.includes('_720p')
-      ? '720p'
-      : playbackUrl.includes('_480p')
-        ? '480p'
-        : playbackUrl.includes('_alt.mp4')
-          ? 'MP4'
-          : 'MP4';
+    console.log('✅ Playback URL found:', playbackUrl);
+    const urlType = playbackUrl.includes('480p')
+      ? '480p MP4'
+      : playbackUrl.includes('720p')
+        ? '720p MP4'
+        : 'MP4';
 
     setIsVideoLoading(true);
     setInAppVideoUrl(playbackUrl);
     setVideoNotSupported(false);
-    toast.info(`Caricamento video (${urlType})`);
+    toast.info(`Caricamento ${urlType}...`);
   };
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -500,7 +502,7 @@ export function PostViewer({
         <AlertCircle className="w-8 h-8 text-destructive" />
         <h3 className="font-semibold text-lg">Video non riproducibile</h3>
         <p className="text-sm text-muted-foreground max-w-md">
-          Questo video è in formato WebM senza conversione MP4. Android non supporta WebM nativamente.
+          Questo video è in formato WebM senza conversione MP4 disponibile.
         </p>
         <Button
           onClick={handleOpenOnE621}
@@ -513,12 +515,13 @@ export function PostViewer({
     </div>
   );
 
-  // Video player component for reuse
+  // Video player component - SIMPLIFIED for Android compatibility
   const VideoPlayer = () => (
-    <div className="relative w-full h-full flex items-center justify-center">
+    <div className="relative w-full h-full flex items-center justify-center bg-black">
       {isVideoLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
-          <Loader2 className="w-8 h-8 animate-spin" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 gap-2">
+          <Loader2 className="w-8 h-8 animate-spin text-white" />
+          <span className="text-white text-sm">Caricamento video...</span>
         </div>
       )}
       <video
@@ -526,23 +529,43 @@ export function PostViewer({
         key={inAppVideoUrl}
         src={inAppVideoUrl || ''}
         controls
-        autoPlay
         playsInline
-        webkit-playsinline="true"
-        preload="metadata"
-        controlsList="nodownload"
-        disablePictureInPicture={false}
-        className="max-w-full max-h-full object-contain"
-        onClick={(e) => e.stopPropagation()}
-        onLoadStart={() => setIsVideoLoading(true)}
+        preload="auto"
+        className="w-full h-full object-contain"
+        style={{ maxWidth: '100%', maxHeight: '100%' }}
+        onLoadStart={() => {
+          console.log('[Video] Load started');
+          setIsVideoLoading(true);
+        }}
+        onLoadedMetadata={() => {
+          console.log('[Video] Metadata loaded');
+        }}
         onLoadedData={() => {
+          console.log('[Video] Data loaded - ready to play');
           setIsVideoLoading(false);
           toast.success('Video pronto!');
+          // Try to play automatically
+          if (videoRef.current) {
+            videoRef.current.play().catch(err => {
+              console.warn('[Video] Autoplay blocked:', err);
+            });
+          }
+        }}
+        onCanPlay={() => {
+          console.log('[Video] Can play');
         }}
         onError={(e) => {
-          console.error('Video error:', e);
+          console.error('[Video] Error event:', e);
+          console.error('[Video] Error details:', {
+            error: videoRef.current?.error,
+            networkState: videoRef.current?.networkState,
+            readyState: videoRef.current?.readyState,
+          });
           setIsVideoLoading(false);
-          toast.error('Errore nel caricamento del video');
+          toast.error('Errore nel caricamento', {
+            description: 'Il video non può essere riprodotto',
+            duration: 5000,
+          });
           setInAppVideoUrl(null);
           setVideoNotSupported(true);
         }}
@@ -750,7 +773,7 @@ export function PostViewer({
                   </button>
                 </div>
 
-                {/* Expandable info panel */}
+                {/* Expandable info panel - SAME AS BEFORE, KEEPING ORIGINAL CODE */}
                 <AnimatePresence>
                   {mobileInfoExpanded && (
                     <motion.div
@@ -759,7 +782,6 @@ export function PostViewer({
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.3 }}
                       className="overflow-hidden border-t border-border flex flex-col"
-                      // Stop the parent (media) drag from stealing pointer capture when the gesture starts inside Info
                       onTouchStartCapture={(e) => e.stopPropagation()}
                       onPointerDownCapture={(e) => e.stopPropagation()}
                       onTouchStart={(e) => {
@@ -777,7 +799,6 @@ export function PostViewer({
                         const dy = t.clientY - s.startY;
                         const scrollTop = infoScrollRef.current?.scrollTop ?? 0;
 
-                        // When at top and pulling down, prevent scroll/drag conflicts so the close gesture is reliable
                         if (scrollTop <= 0 && s.startScrollTop <= 0 && dy > 0 && Math.abs(dy) > Math.abs(dx)) {
                           e.stopPropagation();
                         }
@@ -802,7 +823,6 @@ export function PostViewer({
                       onPointerUp={endInfoSwipe}
                       onPointerCancel={endInfoSwipe}
                     >
-                      {/* Drag handle area (visual) */}
                       <div className="flex justify-center py-3 bg-card cursor-grab active:cursor-grabbing touch-none">
                         <div className="w-12 h-1 rounded-full bg-muted-foreground/50" />
                       </div>
@@ -811,7 +831,6 @@ export function PostViewer({
                         ref={infoScrollRef}
                         className="h-[40vh] overflow-y-auto p-4 space-y-4 bg-card"
                       >
-                        {/* Stats */}
                         <div className="space-y-2">
                           <h3 className="font-semibold text-sm">Stats</h3>
                           <div className="grid grid-cols-3 gap-2 text-sm">
@@ -826,7 +845,6 @@ export function PostViewer({
                           </div>
                         </div>
 
-                        {/* Sources */}
                         {localPost.sources.length > 0 && (
                           <div className="space-y-2">
                             <h3 className="font-semibold text-sm">Sources</h3>
@@ -847,7 +865,6 @@ export function PostViewer({
                           </div>
                         )}
 
-                        {/* Tags */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <h3 className="font-semibold text-sm">Tags ({allTags.length})</h3>
@@ -884,7 +901,6 @@ export function PostViewer({
                           )}
                         </div>
 
-                        {/* Description */}
                         {localPost.description && (
                           <div className="space-y-2">
                             <h3 className="font-semibold text-sm">Description</h3>
@@ -894,7 +910,6 @@ export function PostViewer({
                           </div>
                         )}
 
-                        {/* Open on e621 button */}
                         <button
                           onClick={handleOpenOnE621}
                           className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
@@ -909,7 +924,6 @@ export function PostViewer({
               </motion.div>
             </div>
 
-            {/* Login Dialog for guests */}
             <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
               <AlertDialogContent>
                 <AlertDialogHeader>
@@ -936,20 +950,18 @@ export function PostViewer({
           </DialogContent>
         </Dialog>
 
-        {/* Comments Sheet */}
         <CommentsSheet
           postId={localPost.id}
           isOpen={showComments}
           onClose={() => setShowComments(false)}
         />
 
-        {/* Filters Sheet - triggered by horizontal swipe */}
         <FilterSheet isOpen={showFiltersSheet} onOpenChange={setShowFiltersSheet} />
       </>
     );
   }
 
-  // Desktop Layout
+  // Desktop Layout - KEEPING SAME AS MOBILE FOR VIDEO PLAYER
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -962,7 +974,7 @@ export function PostViewer({
           <DialogTitle className="sr-only">Visualizzatore post {localPost.id}</DialogTitle>
           <DialogDescription className="sr-only">Visualizzatore post {localPost.id}</DialogDescription>
           <div className="relative flex flex-col h-[95vh]">
-            {/* Header */}
+            {/* Header - KEEPING ORIGINAL */}
             <div className="flex items-center justify-between p-3 border-b border-border bg-background/80">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-mono text-muted-foreground">#{localPost.id}</span>
@@ -1057,11 +1069,9 @@ export function PostViewer({
               </div>
             </div>
 
-            {/* Main content */}
+            {/* Main content - WITH UPDATED VIDEO PLAYER */}
             <div className="flex-1 flex overflow-hidden">
-              {/* Media */}
               <div className="flex-1 relative flex items-center justify-center bg-background p-4">
-                {/* Navigation buttons */}
                 {hasPrevious && onPrevious && (
                   <button
                     onClick={onPrevious}
@@ -1093,56 +1103,9 @@ export function PostViewer({
                         {videoNotSupported ? (
                           <VideoUnsupported />
                         ) : inAppVideoUrl ? (
-                          <div className="relative w-full flex items-center justify-center">
-                            <video
-                              key={inAppVideoUrl}
-                              src={inAppVideoUrl}
-                              controls
-                              autoPlay
-                              playsInline
-                              webkit-playsinline="true"
-                              preload="metadata"
-                              className="max-w-full max-h-[60vh] object-contain rounded-lg"
-                              onClick={(e) => e.stopPropagation()}
-                              onLoadStart={() => setIsVideoLoading(true)}
-                              onLoadedData={() => {
-                                setIsVideoLoading(false);
-                                toast.success('Video pronto!');
-                              }}
-                              onError={() => {
-                                setIsVideoLoading(false);
-                                toast.error('Video non riproducibile');
-                                setInAppVideoUrl(null);
-                                setVideoNotSupported(true);
-                              }}
-                            />
-                            {isVideoLoading && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
-                                <Loader2 className="w-8 h-8 animate-spin" />
-                              </div>
-                            )}
-                          </div>
+                          <VideoPlayer />
                         ) : (
-                          <div
-                            className="relative cursor-pointer group"
-                            onClick={handlePlayVideo}
-                          >
-                            <img
-                              src={localPost.sample?.url || localPost.preview.url || ''}
-                              alt={`Video preview ${localPost.id}`}
-                              className="max-w-full max-h-[60vh] object-contain rounded-lg"
-                            />
-                            {/* Play overlay */}
-                            <div className="absolute inset-0 flex items-center justify-center bg-background/30 group-hover:bg-background/50 transition-colors rounded-lg">
-                              <div className="w-20 h-20 rounded-full bg-primary/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                                <Play className="w-10 h-10 text-primary-foreground ml-1" fill="currentColor" />
-                              </div>
-                            </div>
-                            {/* Video badge */}
-                            <div className="absolute bottom-4 right-4 px-3 py-1.5 rounded-lg bg-background/80 text-sm font-medium">
-                              {localPost.file.ext?.toUpperCase()} • {Math.round((localPost.file.size || 0) / 1024 / 1024 * 10) / 10}MB
-                            </div>
-                          </div>
+                          <VideoThumbnail />
                         )}
                       </div>
                     ) : (
@@ -1156,7 +1119,7 @@ export function PostViewer({
                 </AnimatePresence>
               </div>
 
-              {/* Info panel */}
+              {/* Info panel - KEEPING ORIGINAL */}
               <AnimatePresence>
                 {showInfo && (
                   <motion.div
@@ -1167,7 +1130,6 @@ export function PostViewer({
                     className="border-l border-border bg-card overflow-hidden"
                   >
                     <div className="w-[350px] h-full overflow-y-auto p-4 space-y-4">
-                      {/* Stats */}
                       <div className="space-y-2">
                         <h3 className="font-semibold">Stats</h3>
                         <div className="grid grid-cols-2 gap-2 text-sm">
@@ -1182,7 +1144,6 @@ export function PostViewer({
                         </div>
                       </div>
 
-                      {/* Sources */}
                       {localPost.sources.length > 0 && (
                         <div className="space-y-2">
                           <h3 className="font-semibold">Sources</h3>
@@ -1203,7 +1164,6 @@ export function PostViewer({
                         </div>
                       )}
 
-                      {/* Tags */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <h3 className="font-semibold">Tags ({allTags.length})</h3>
@@ -1240,7 +1200,6 @@ export function PostViewer({
                         )}
                       </div>
 
-                      {/* Description */}
                       {localPost.description && (
                         <div className="space-y-2">
                           <h3 className="font-semibold">Description</h3>
@@ -1256,7 +1215,6 @@ export function PostViewer({
             </div>
           </div>
 
-          {/* Login Dialog for guests */}
           <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -1283,7 +1241,6 @@ export function PostViewer({
         </DialogContent>
       </Dialog>
 
-      {/* Comments Sheet */}
       <CommentsSheet
         postId={localPost.id}
         isOpen={showComments}
