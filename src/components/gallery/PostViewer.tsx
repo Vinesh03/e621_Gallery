@@ -1,5 +1,6 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
+import { videoPlayerService } from '@/services/videoPlayerService';
 import { useSearchStore, useAuthStore, useUserInteractionsStore, useSettingsStore } from '@/stores/appStore';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -61,8 +62,6 @@ export function PostViewer({
   const [showAllTags, setShowAllTags] = useState(false);
   const [pendingTagChanges, setPendingTagChanges] = useState<Set<string>>(new Set());
   const [mobileInfoExpanded, setMobileInfoExpanded] = useState(false);
-  const [inAppVideoUrl, setInAppVideoUrl] = useState<string | null>(null);
-  const [videoNotSupported, setVideoNotSupported] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
@@ -73,8 +72,6 @@ export function PostViewer({
   const [localPost, setLocalPost] = useState<E621Post | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
-  const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const infoScrollRef = useRef<HTMLDivElement>(null);
@@ -103,11 +100,9 @@ export function PostViewer({
 
     const atTop = scrollTop <= 0 && s.startScrollTop <= 0;
 
-    // Decide axis
     if (s.axis === 'none') {
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
 
-      // If we're at the top and the user is pulling down, prioritize vertical close gesture.
       if (atTop && dy > 0 && Math.abs(dy) >= Math.abs(dx) * 0.8) {
         s.axis = 'y';
       } else {
@@ -115,7 +110,6 @@ export function PostViewer({
       }
     }
 
-    // Swipe down on info content (only when scrolled at top) = close info
     if (s.axis === 'y') {
       if (atTop && dy > 60) {
         s.triggered = true;
@@ -124,7 +118,6 @@ export function PostViewer({
       return;
     }
 
-    // Horizontal swipe on info content = navigate posts
     if (Math.abs(dx) > 90 && Math.abs(dy) < 60) {
       s.triggered = true;
       if (dx < 0 && hasNext && onNext) {
@@ -144,17 +137,14 @@ export function PostViewer({
   const { getUserVote, setUserVote, isUserFavorite, setUserFavorite } = useUserInteractionsStore();
   const { downloadFolder } = useSettingsStore();
 
-  // Get persisted vote and favorite state for current post
   const userVote = post ? getUserVote(post.id) : 0;
   const userFavorited = post ? isUserFavorite(post.id) : false;
 
-  // Sync local post with prop and fetch fresh stats
   useEffect(() => {
     if (!post?.id || !isOpen) return;
     
     setLocalPost(post);
     
-    // Fetch fresh post data from API with abort controller
     const abortController = new AbortController();
     
     const fetchFreshStats = async () => {
@@ -163,7 +153,6 @@ export function PostViewer({
         const freshPost = await e621Api.getPost(post.id);
         if (!abortController.signal.aborted) {
           setLocalPost(freshPost);
-          // Update favorite state from API if authenticated
           if (freshPost.is_favorited) {
             setUserFavorite(post.id, true);
           }
@@ -186,18 +175,13 @@ export function PostViewer({
     };
   }, [post?.id, isOpen, setUserFavorite]);
 
-  // Reset state when post changes
   useEffect(() => {
     setShowAllTags(false);
     setPendingTagChanges(new Set());
     setMobileInfoExpanded(false);
-    setInAppVideoUrl(null);
-    setVideoNotSupported(false);
     setShowComments(false);
-    setIsVideoLoading(false);
   }, [post?.id]);
 
-  // Handle browser back button to close viewer
   useEffect(() => {
     if (!isOpen) return;
     
@@ -206,7 +190,6 @@ export function PostViewer({
       handleClose();
     };
 
-    // Push a new state when opening viewer
     window.history.pushState({ postViewer: true, postId: post?.id }, '');
     window.addEventListener('popstate', handlePopState);
 
@@ -277,14 +260,11 @@ export function PostViewer({
     
     setIsLiking(true);
     try {
-      // e621 API: sending score=1 toggles like on/off
-      // If user has dislike, first we need to send score=1 to switch
       const result = await e621Api.votePost(localPost.id, 1);
       setLocalPost(prev => prev ? {
         ...prev,
         score: { up: result.up, down: result.down, total: result.score }
       } : null);
-      // our_score: 1 = liked, -1 = disliked, 0 = no vote
       setUserVote(localPost.id, result.our_score as 1 | -1 | 0);
       toast.success(result.our_score === 1 ? 'Like aggiunto!' : 'Like rimosso');
     } catch (error) {
@@ -303,13 +283,11 @@ export function PostViewer({
     
     setIsDisliking(true);
     try {
-      // e621 API: sending score=-1 toggles dislike on/off
       const result = await e621Api.votePost(localPost.id, -1);
       setLocalPost(prev => prev ? {
         ...prev,
         score: { up: result.up, down: result.down, total: result.score }
       } : null);
-      // our_score: 1 = liked, -1 = disliked, 0 = no vote
       setUserVote(localPost.id, result.our_score as 1 | -1 | 0);
       toast.success(result.our_score === -1 ? 'Dislike aggiunto!' : 'Dislike rimosso');
     } catch (error) {
@@ -375,13 +353,10 @@ export function PostViewer({
     let newTags: string[];
 
     if (isTagExcluded(tag)) {
-      // Remove exclusion
       newTags = tags.filter(t => t !== `-${tag}`);
     } else if (isTagInSearch(tag)) {
-      // Tag is in search, remove it
       newTags = tags.filter(t => t !== tag);
     } else {
-      // Add tag to search
       newTags = [...tags, tag];
     }
 
@@ -395,42 +370,43 @@ export function PostViewer({
     onClose(shouldTriggerSearch);
   };
 
-  const handlePlayVideo = () => {
-    console.log('=== VIDEO PLAYBACK ATTEMPT ===');
+  // NATIVE VIDEO PLAYER - usa player Android/iOS nativo per WebM
+  const handlePlayVideo = async () => {
+    console.log('=== NATIVE VIDEO PLAYBACK ===');
     console.log('Post ID:', localPost.id);
     console.log('File ext:', localPost.file.ext);
     
-    const playbackUrl = e621Api.getVideoPlaybackUrl(localPost);
+    // Usa il file originale per WebM
+    const videoUrl = downloadUrl;
     
-    if (!playbackUrl) {
-      console.error('❌ No playback URL available');
-      setVideoNotSupported(true);
-      toast.error('Video non compatibile', {
-        description: 'Nessun formato MP4 disponibile per questo video',
-        duration: 5000,
-      });
+    if (!videoUrl) {
+      console.error('❌ No video URL available');
+      toast.error('Video non disponibile');
       return;
     }
 
-    console.log('✅ Playback URL found:', playbackUrl);
-    const urlType = playbackUrl.includes('480p')
-      ? '480p MP4'
-      : playbackUrl.includes('720p')
-        ? '720p MP4'
-        : 'MP4';
+    console.log('✅ Playing video URL:', videoUrl);
+    toast.info('Apertura player nativo...');
 
-    setIsVideoLoading(true);
-    setInAppVideoUrl(playbackUrl);
-    setVideoNotSupported(false);
-    toast.info(`Caricamento ${urlType}...`);
+    const result = await videoPlayerService.playVideo(videoUrl, `Post ${localPost.id}`);
+    
+    if (!result.success) {
+      console.error('❌ Native player error:', result.error);
+      toast.error('Errore nel player video', {
+        description: result.error,
+        duration: 5000,
+        action: {
+          label: 'Apri su e621',
+          onClick: handleOpenOnE621,
+        },
+      });
+    }
   };
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    // Swipe UP = open info (negative Y offset - finger moves up)
     if (info.offset.y < -50 && !mobileInfoExpanded) {
       setMobileInfoExpanded(true);
     }
-    // Swipe DOWN = if info is open, close it. If info is closed, close the post viewer
     if (info.offset.y > 50) {
       if (mobileInfoExpanded) {
         setMobileInfoExpanded(false);
@@ -438,13 +414,10 @@ export function PostViewer({
         handleClose();
       }
     }
-    // Horizontal swipe for navigation between posts
     if (Math.abs(info.offset.x) > 80 && Math.abs(info.offset.y) < 50) {
       if (info.offset.x < 0 && hasNext && onNext) {
-        // Swipe LEFT = next post
         onNext();
       } else if (info.offset.x > 0 && hasPrevious && onPrevious) {
-        // Swipe RIGHT = previous post
         onPrevious();
       }
     }
@@ -490,108 +463,22 @@ export function PostViewer({
     );
   };
 
-  // Video error/unsupported component
-  const VideoUnsupported = () => (
-    <div className="relative w-full h-full flex flex-col items-center justify-center gap-4 p-8">
-      <img
-        src={localPost.preview.url || localPost.sample?.url || ''}
-        alt={`Video preview ${localPost.id}`}
-        className="max-w-full max-h-[40vh] object-contain opacity-50"
-      />
-      <div className="flex flex-col items-center gap-2 text-center">
-        <AlertCircle className="w-8 h-8 text-destructive" />
-        <h3 className="font-semibold text-lg">Video non riproducibile</h3>
-        <p className="text-sm text-muted-foreground max-w-md">
-          Questo video è in formato WebM senza conversione MP4 disponibile.
-        </p>
-        <Button
-          onClick={handleOpenOnE621}
-          className="mt-4 flex items-center gap-2"
-        >
-          <ExternalLink className="w-4 h-4" />
-          Guarda su e621.net
-        </Button>
-      </div>
-    </div>
-  );
-
-  // Video player component - SIMPLIFIED for Android compatibility
-  const VideoPlayer = () => (
-    <div className="relative w-full h-full flex items-center justify-center bg-black">
-      {isVideoLoading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 gap-2">
-          <Loader2 className="w-8 h-8 animate-spin text-white" />
-          <span className="text-white text-sm">Caricamento video...</span>
-        </div>
-      )}
-      <video
-        ref={videoRef}
-        key={inAppVideoUrl}
-        src={inAppVideoUrl || ''}
-        controls
-        playsInline
-        preload="auto"
-        className="w-full h-full object-contain"
-        style={{ maxWidth: '100%', maxHeight: '100%' }}
-        onLoadStart={() => {
-          console.log('[Video] Load started');
-          setIsVideoLoading(true);
-        }}
-        onLoadedMetadata={() => {
-          console.log('[Video] Metadata loaded');
-        }}
-        onLoadedData={() => {
-          console.log('[Video] Data loaded - ready to play');
-          setIsVideoLoading(false);
-          toast.success('Video pronto!');
-          // Try to play automatically
-          if (videoRef.current) {
-            videoRef.current.play().catch(err => {
-              console.warn('[Video] Autoplay blocked:', err);
-            });
-          }
-        }}
-        onCanPlay={() => {
-          console.log('[Video] Can play');
-        }}
-        onError={(e) => {
-          console.error('[Video] Error event:', e);
-          console.error('[Video] Error details:', {
-            error: videoRef.current?.error,
-            networkState: videoRef.current?.networkState,
-            readyState: videoRef.current?.readyState,
-          });
-          setIsVideoLoading(false);
-          toast.error('Errore nel caricamento', {
-            description: 'Il video non può essere riprodotto',
-            duration: 5000,
-          });
-          setInAppVideoUrl(null);
-          setVideoNotSupported(true);
-        }}
-      />
-    </div>
-  );
-
-  // Video thumbnail component for reuse
+  // Video thumbnail - clicca per aprire player nativo
   const VideoThumbnail = () => (
     <div
       className="relative cursor-pointer group"
       onClick={handlePlayVideo}
     >
-      {/* Preview image or poster */}
       <img
         src={localPost.preview.url || localPost.sample?.url || ''}
         alt={`Video preview ${localPost.id}`}
         className="max-w-full max-h-full object-contain"
       />
-      {/* Play button overlay */}
       <div className="absolute inset-0 flex items-center justify-center bg-background/30 group-hover:bg-background/50 transition-colors">
         <div className="w-16 h-16 rounded-full bg-primary/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
           <Play className="w-8 h-8 text-primary-foreground ml-1" fill="currentColor" />
         </div>
       </div>
-      {/* Video badge */}
       <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-background/80 text-xs font-medium">
         {localPost.file.ext?.toUpperCase()} • {Math.round((localPost.file.size || 0) / 1024 / 1024 * 10) / 10}MB
       </div>
@@ -617,7 +504,6 @@ export function PostViewer({
           >
             <DialogDescription className="sr-only">Visualizzatore post {localPost.id}</DialogDescription>
             <div ref={containerRef} className="relative flex flex-col h-full overflow-hidden">
-              {/* Header */}
               <div className="flex items-center justify-between p-3 border-b border-border bg-background/95 backdrop-blur-sm z-10">
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-mono text-muted-foreground">#{localPost.id}</span>
@@ -651,7 +537,6 @@ export function PostViewer({
                 </div>
               </div>
 
-              {/* Main content with drag to expand */}
               <motion.div 
                 className="flex-1 flex flex-col overflow-hidden"
                 drag="y"
@@ -660,7 +545,6 @@ export function PostViewer({
                 dragElastic={0.2}
                 onDragEnd={handleDragEnd}
               >
-                {/* Media */}
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={localPost.id}
@@ -672,7 +556,6 @@ export function PostViewer({
                     transition={{ duration: 0.3 }}
                     className="relative flex items-center justify-center bg-background overflow-hidden"
                   >
-                    {/* Navigation buttons */}
                     {hasPrevious && onPrevious && (
                       <button
                         onClick={onPrevious}
@@ -691,15 +574,7 @@ export function PostViewer({
                     )}
 
                     {isVideo ? (
-                      <div className="relative flex items-center justify-center w-full h-full">
-                        {videoNotSupported ? (
-                          <VideoUnsupported />
-                        ) : inAppVideoUrl ? (
-                          <VideoPlayer />
-                        ) : (
-                          <VideoThumbnail />
-                        )}
-                      </div>
+                      <VideoThumbnail />
                     ) : (
                       <img
                         src={mediaUrl || ''}
@@ -710,12 +585,10 @@ export function PostViewer({
                   </motion.div>
                 </AnimatePresence>
 
-                {/* Drag indicator */}
                 <div className="flex justify-center py-2 bg-background">
                   <div className="w-12 h-1 rounded-full bg-muted-foreground/30" />
                 </div>
 
-                {/* Quick actions bar */}
                 <div className="flex items-center justify-around p-3 border-t border-border bg-background">
                   <button 
                     onClick={handleLike}
@@ -773,7 +646,6 @@ export function PostViewer({
                   </button>
                 </div>
 
-                {/* Expandable info panel - SAME AS BEFORE, KEEPING ORIGINAL CODE */}
                 <AnimatePresence>
                   {mobileInfoExpanded && (
                     <motion.div
@@ -961,7 +833,7 @@ export function PostViewer({
     );
   }
 
-  // Desktop Layout - KEEPING SAME AS MOBILE FOR VIDEO PLAYER
+  // Desktop Layout
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -974,7 +846,6 @@ export function PostViewer({
           <DialogTitle className="sr-only">Visualizzatore post {localPost.id}</DialogTitle>
           <DialogDescription className="sr-only">Visualizzatore post {localPost.id}</DialogDescription>
           <div className="relative flex flex-col h-[95vh]">
-            {/* Header - KEEPING ORIGINAL */}
             <div className="flex items-center justify-between p-3 border-b border-border bg-background/80">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-mono text-muted-foreground">#{localPost.id}</span>
@@ -1069,7 +940,6 @@ export function PostViewer({
               </div>
             </div>
 
-            {/* Main content - WITH UPDATED VIDEO PLAYER */}
             <div className="flex-1 flex overflow-hidden">
               <div className="flex-1 relative flex items-center justify-center bg-background p-4">
                 {hasPrevious && onPrevious && (
@@ -1099,15 +969,7 @@ export function PostViewer({
                     className="max-w-full max-h-full"
                   >
                     {isVideo ? (
-                      <div className="flex flex-col items-center gap-4">
-                        {videoNotSupported ? (
-                          <VideoUnsupported />
-                        ) : inAppVideoUrl ? (
-                          <VideoPlayer />
-                        ) : (
-                          <VideoThumbnail />
-                        )}
-                      </div>
+                      <VideoThumbnail />
                     ) : (
                       <img
                         src={mediaUrl || ''}
@@ -1119,7 +981,6 @@ export function PostViewer({
                 </AnimatePresence>
               </div>
 
-              {/* Info panel - KEEPING ORIGINAL */}
               <AnimatePresence>
                 {showInfo && (
                   <motion.div
