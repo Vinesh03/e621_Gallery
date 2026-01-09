@@ -1,11 +1,10 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { videoPlayerService } from '@/services/videoPlayerService';
 import { useSearchStore, useAuthStore, useUserInteractionsStore, useSettingsStore } from '@/stores/appStore';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { X, Download, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle, Star, Loader2, Share2, AlertCircle } from 'lucide-react';
+import { X, Download, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle, Star, Loader2, Share2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
@@ -72,6 +71,8 @@ export function PostViewer({
   const [localPost, setLocalPost] = useState<E621Post | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const infoScrollRef = useRef<HTMLDivElement>(null);
@@ -180,6 +181,7 @@ export function PostViewer({
     setPendingTagChanges(new Set());
     setMobileInfoExpanded(false);
     setShowComments(false);
+    setShowVideo(false);
   }, [post?.id]);
 
   useEffect(() => {
@@ -370,37 +372,16 @@ export function PostViewer({
     onClose(shouldTriggerSearch);
   };
 
-  // NATIVE VIDEO PLAYER - usa player Android/iOS nativo per WebM
-  const handlePlayVideo = async () => {
-    console.log('=== NATIVE VIDEO PLAYBACK ===');
-    console.log('Post ID:', localPost.id);
-    console.log('File ext:', localPost.file.ext);
-    
-    // Usa il file originale per WebM
-    const videoUrl = downloadUrl;
-    
-    if (!videoUrl) {
-      console.error('❌ No video URL available');
-      toast.error('Video non disponibile');
-      return;
-    }
-
-    console.log('✅ Playing video URL:', videoUrl);
-    toast.info('Apertura player nativo...');
-
-    const result = await videoPlayerService.playVideo(videoUrl, `Post ${localPost.id}`);
-    
-    if (!result.success) {
-      console.error('❌ Native player error:', result.error);
-      toast.error('Errore nel player video', {
-        description: result.error,
-        duration: 5000,
-        action: {
-          label: 'Apri su e621',
-          onClick: handleOpenOnE621,
-        },
-      });
-    }
+  const handlePlayVideo = () => {
+    setShowVideo(true);
+    // Try to play the video after a short delay to ensure it's rendered
+    setTimeout(() => {
+      if (videoRef.current) {
+        videoRef.current.play().catch(err => {
+          console.warn('Autoplay blocked:', err);
+        });
+      }
+    }, 100);
   };
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
@@ -463,7 +444,27 @@ export function PostViewer({
     );
   };
 
-  // Video thumbnail - clicca per aprire player nativo
+  // Video player component - SAME AS SHORTSVIEWER
+  const VideoPlayer = () => (
+    <div className="relative w-full h-full flex items-center justify-center bg-black">
+      <video
+        ref={videoRef}
+        src={downloadUrl || ''}
+        className="w-full h-full object-contain"
+        controls
+        autoPlay
+        muted
+        loop
+        playsInline
+        onError={(e) => {
+          console.error('[Video] Error playing:', e);
+          toast.error('Errore nel caricamento video');
+        }}
+      />
+    </div>
+  );
+
+  // Video thumbnail
   const VideoThumbnail = () => (
     <div
       className="relative cursor-pointer group"
@@ -574,7 +575,7 @@ export function PostViewer({
                     )}
 
                     {isVideo ? (
-                      <VideoThumbnail />
+                      showVideo ? <VideoPlayer /> : <VideoThumbnail />
                     ) : (
                       <img
                         src={mediaUrl || ''}
@@ -969,7 +970,7 @@ export function PostViewer({
                     className="max-w-full max-h-full"
                   >
                     {isVideo ? (
-                      <VideoThumbnail />
+                      showVideo ? <VideoPlayer /> : <VideoThumbnail />
                     ) : (
                       <img
                         src={mediaUrl || ''}
