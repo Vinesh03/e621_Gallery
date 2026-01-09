@@ -300,23 +300,42 @@ class E621Api {
   }
 
   /**
-   * Best URL for actually playing a video (prefer MP4 transcodes for compatibility).
-   * NOTE: On Android WebView, WebM playback can crash on some devices, so we avoid returning WebM URLs.
+   * Best URL for actually playing a video.
+   * CRITICAL: Always prefer MP4 transcodes over WebM to prevent Android crashes.
+   * Priority order:
+   * 1. 480p MP4 (best compatibility, smaller size)
+   * 2. 720p MP4 (good quality, still compatible)
+   * 3. Original MP4 file (if original format is MP4)
+   * 4. MP4 variant (any other MP4 alternative)
+   * Never return WebM URLs as they cause crashes on many Android devices.
    */
   getVideoPlaybackUrl(post: E621Post): string | null {
     const ext = (post.file.ext || '').toLowerCase();
-    if (ext !== 'webm' && ext !== 'mp4') return null;
+    
+    // Only process video files
+    if (ext !== 'webm' && ext !== 'mp4') {
+      return null;
+    }
 
-    // Prefer the most compatible / lightest MP4 first.
     const alternates = post.sample.alternates;
-    const mp4_480 = alternates?.samples?.['480p']?.url;
-    const mp4_720 = alternates?.samples?.['720p']?.url;
-    const mp4_variant = alternates?.variants?.mp4?.url;
-
-    // Only return an original file URL if it is already MP4.
+    
+    // Try to get MP4 alternatives in order of preference
+    const mp4_480 = alternates?.['480p']?.urls?.[1] || alternates?.['480p']?.urls?.[0];
+    const mp4_720 = alternates?.['720p']?.urls?.[1] || alternates?.['720p']?.urls?.[0];
+    const mp4_original = alternates?.original?.urls?.[1] || alternates?.original?.urls?.[0];
+    
+    // Fallback to checking if original file is MP4
     const originalMp4 = ext === 'mp4' ? post.file.url : null;
 
-    return mp4_480 || mp4_720 || mp4_variant || originalMp4;
+    // Return first available MP4 URL
+    const videoUrl = mp4_480 || mp4_720 || mp4_original || originalMp4;
+    
+    if (!videoUrl) {
+      console.warn(`No compatible MP4 video found for post ${post.id}. Original format: ${ext}`);
+      console.warn('Available alternates:', alternates);
+    }
+    
+    return videoUrl;
   }
 }
 
