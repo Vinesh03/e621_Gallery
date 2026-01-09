@@ -163,10 +163,10 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         const nextIndex = currentIndex + i;
         if (nextIndex < localPosts.length) {
           const nextPost = localPosts[nextIndex];
-          const videoUrl = e621Api.getVideoPlaybackUrl(nextPost) || e621Api.getDownloadUrl(nextPost);
-          
+          const videoUrl = e621Api.getVideoPlaybackUrl(nextPost);
+
+          // Avoid WebM on Android WebView; if no MP4 is available, skip preloading.
           if (videoUrl && !preloadedUrls.current.has(videoUrl)) {
-            // Create a hidden video element to preload
             const preloadVideo = document.createElement('video');
             preloadVideo.preload = 'metadata';
             preloadVideo.src = videoUrl;
@@ -180,16 +180,12 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     preloadVideos();
   }, [currentIndex, localPosts]);
 
-  // Play/pause videos based on current index - WITH SOUND
+  // Play/pause videos based on current index (keep muted by default for stability on mobile)
   useEffect(() => {
     videoRefs.current.forEach((video, index) => {
       if (index === currentIndex) {
-        video.muted = false; // Volume ON by default
-        video.play().catch(() => {
-          // If autoplay with sound fails, try muted
-          video.muted = true;
-          video.play().catch(() => {});
-        });
+        video.muted = true;
+        video.play().catch(() => {});
       } else {
         video.pause();
       }
@@ -611,18 +607,18 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           >
             {currentPost && (
               <div className="flex flex-col items-center gap-4 w-full h-full justify-center">
-                <video
+                                                                   <video
                   ref={(el) => {
                     if (el) videoRefs.current.set(currentIndex, el);
                   }}
-                  src={e621Api.getVideoPlaybackUrl(currentPost) || e621Api.getDownloadUrl(currentPost) || ''}
+                  src={e621Api.getVideoPlaybackUrl(currentPost) || ''}
                   className="max-w-full max-h-[80vh] object-contain"
                   controls
                   autoPlay
                   loop
                   playsInline
                   muted
-                  preload="auto"
+                  preload="metadata"
                   onError={() => {
                     toast.error('Video non riproducibile');
                   }}

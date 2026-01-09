@@ -301,18 +301,22 @@ class E621Api {
 
   /**
    * Best URL for actually playing a video (prefer MP4 transcodes for compatibility).
+   * NOTE: On Android WebView, WebM playback can crash on some devices, so we avoid returning WebM URLs.
    */
   getVideoPlaybackUrl(post: E621Post): string | null {
     const ext = (post.file.ext || '').toLowerCase();
     if (ext !== 'webm' && ext !== 'mp4') return null;
 
-    // If e621 provides MP4 transcodes (most compatible), prefer them.
+    // Prefer the most compatible / lightest MP4 first.
     const alternates = post.sample.alternates;
-    const mp4_720 = alternates?.samples?.['720p']?.url;
     const mp4_480 = alternates?.samples?.['480p']?.url;
+    const mp4_720 = alternates?.samples?.['720p']?.url;
     const mp4_variant = alternates?.variants?.mp4?.url;
 
-    return mp4_720 || mp4_480 || mp4_variant || post.file.url;
+    // Only return an original file URL if it is already MP4.
+    const originalMp4 = ext === 'mp4' ? post.file.url : null;
+
+    return mp4_480 || mp4_720 || mp4_variant || originalMp4;
   }
 }
 
