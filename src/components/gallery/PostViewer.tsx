@@ -10,7 +10,6 @@ import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { nativeVideoPlayer } from '@/services/nativeVideoPlayer';
 import { useNavigate } from 'react-router-dom';
 import { CommentsSheet } from './CommentsSheet';
 import { FilterSheet } from './FilterSheet';
@@ -73,6 +72,8 @@ export function PostViewer({
   const [localPost, setLocalPost] = useState<E621Post | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
+  const [isVideoLoading, setIsVideoLoading] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const infoScrollRef = useRef<HTMLDivElement>(null);
@@ -191,6 +192,7 @@ export function PostViewer({
     setMobileInfoExpanded(false);
     setInAppVideoUrl(null);
     setShowComments(false);
+    setIsVideoLoading(false);
   }, [post?.id]);
 
   // Handle browser back button to close viewer
@@ -391,6 +393,25 @@ export function PostViewer({
     onClose(shouldTriggerSearch);
   };
 
+  const handlePlayVideo = () => {
+    const playbackUrl = e621Api.getVideoPlaybackUrl(localPost);
+    if (!playbackUrl) {
+      toast.error('Formato video non supportato');
+      return;
+    }
+
+    const urlType = playbackUrl.includes('_720p')
+      ? '720p'
+      : playbackUrl.includes('_480p')
+        ? '480p'
+        : playbackUrl.includes('_alt.mp4')
+          ? 'MP4'
+          : 'MP4';
+
+    setIsVideoLoading(true);
+    setInAppVideoUrl(playbackUrl);
+    toast.info(`Caricamento video (${urlType})`);
+  };
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     // Swipe UP = open info (negative Y offset - finger moves up)
@@ -456,6 +477,67 @@ export function PostViewer({
       </button>
     );
   };
+
+  // Video player component for reuse
+  const VideoPlayer = () => (
+    <div className="relative w-full h-full flex items-center justify-center">
+      {isVideoLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+          <Loader2 className="w-8 h-8 animate-spin" />
+        </div>
+      )}
+      <video
+        ref={videoRef}
+        key={inAppVideoUrl}
+        src={inAppVideoUrl || ''}
+        controls
+        autoPlay
+        playsInline
+        webkit-playsinline="true"
+        preload="metadata"
+        controlsList="nodownload"
+        disablePictureInPicture={false}
+        className="max-w-full max-h-full object-contain"
+        onClick={(e) => e.stopPropagation()}
+        onLoadStart={() => setIsVideoLoading(true)}
+        onLoadedData={() => {
+          setIsVideoLoading(false);
+          toast.success('Video pronto!');
+        }}
+        onError={(e) => {
+          console.error('Video error:', e);
+          setIsVideoLoading(false);
+          toast.error('Errore nel caricamento del video');
+          setInAppVideoUrl(null);
+        }}
+      />
+    </div>
+  );
+
+  // Video thumbnail component for reuse
+  const VideoThumbnail = () => (
+    <div
+      className="relative cursor-pointer group"
+      onClick={handlePlayVideo}
+    >
+      {/* Preview image or poster */}
+      <img
+        src={localPost.preview.url || localPost.sample?.url || ''}
+        alt={`Video preview ${localPost.id}`}
+        className="max-w-full max-h-full object-contain"
+      />
+      {/* Play button overlay */}
+      <div className="absolute inset-0 flex items-center justify-center bg-background/30 group-hover:bg-background/50 transition-colors">
+        <div className="w-16 h-16 rounded-full bg-primary/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+          <Play className="w-8 h-8 text-primary-foreground ml-1" fill="currentColor" />
+        </div>
+      </div>
+      {/* Video badge */}
+      <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-background/80 text-xs font-medium">
+        {localPost.file.ext?.toUpperCase()} • {Math.round((localPost.file.size || 0) / 1024 / 1024 * 10) / 10}MB
+      </div>
+    </div>
+  );
 
   // Mobile Layout
   if (isMobile) {
@@ -551,75 +633,7 @@ export function PostViewer({
 
                     {isVideo ? (
                       <div className="relative flex items-center justify-center w-full h-full">
-                        {inAppVideoUrl ? (
-                          <div className="relative w-full h-full flex items-center justify-center">
-                            <video
-                              key={inAppVideoUrl}
-                              src={inAppVideoUrl}
-                              controls
-                              autoPlay
-                              playsInline
-                              preload="metadata"
-                              className="max-w-full max-h-full object-contain"
-                              onClick={(e) => e.stopPropagation()}
-                              onError={() => {
-                                toast.error('Video non riproducibile');
-                                setInAppVideoUrl(null);
-                              }}
-                            />
-                            {/* Removed the extra X button for video - use the main close button instead */}
-                          </div>
-                        ) : (
-                          <div
-                            className="relative cursor-pointer group"
-                            onClick={async () => {
-                              const playbackUrl = e621Api.getVideoPlaybackUrl(localPost);
-                              if (!playbackUrl) {
-                                toast.error('Formato video non supportato sul dispositivo');
-                                return;
-                              }
-
-                              const urlType = playbackUrl.includes('_720p')
-                                ? '720p'
-                                : playbackUrl.includes('_480p')
-                                  ? '480p'
-                                  : playbackUrl.includes('_alt.mp4')
-                                    ? 'MP4'
-                                    : 'MP4';
-
-                              try {
-                                const success = await nativeVideoPlayer.playFullscreen(playbackUrl, `Post #${localPost.id}`);
-                                if (!success) {
-                                  setInAppVideoUrl(playbackUrl);
-                                  toast.info(`Riproduzione integrata (${urlType})`);
-                                }
-                              } catch (err) {
-                                console.error(err);
-                                setInAppVideoUrl(playbackUrl);
-                                toast.error(`Riproduzione integrata (${urlType})`, {
-                                  description: err instanceof Error ? err.message : String(err),
-                                });
-                              }
-                            }}
-                          >
-                            {/* Preview image or poster */}
-                            <img
-                              src={localPost.preview.url || localPost.sample?.url || ''}
-                              alt={`Video preview ${localPost.id}`}
-                              className="max-w-full max-h-full object-contain"
-                            />
-                            {/* Play button overlay */}
-                            <div className="absolute inset-0 flex items-center justify-center bg-background/30 group-hover:bg-background/50 transition-colors">
-                              <div className="w-16 h-16 rounded-full bg-primary/90 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                                <Play className="w-8 h-8 text-primary-foreground ml-1" fill="currentColor" />
-                              </div>
-                            </div>
-                            {/* Video badge */}
-                            <div className="absolute bottom-2 right-2 px-2 py-1 rounded bg-background/80 text-xs font-medium">
-                              {localPost.file.ext?.toUpperCase()} • {Math.round((localPost.file.size || 0) / 1024 / 1024 * 10) / 10}MB
-                            </div>
-                          </div>
-                        )}
+                        {inAppVideoUrl ? <VideoPlayer /> : <VideoThumbnail />}
                       </div>
                     ) : (
                       <img
@@ -1042,48 +1056,31 @@ export function PostViewer({
                               controls
                               autoPlay
                               playsInline
+                              webkit-playsinline="true"
                               preload="metadata"
                               className="max-w-full max-h-[60vh] object-contain rounded-lg"
                               onClick={(e) => e.stopPropagation()}
+                              onLoadStart={() => setIsVideoLoading(true)}
+                              onLoadedData={() => {
+                                setIsVideoLoading(false);
+                                toast.success('Video pronto!');
+                              }}
                               onError={() => {
+                                setIsVideoLoading(false);
                                 toast.error('Video non riproducibile');
                                 setInAppVideoUrl(null);
                               }}
                             />
-                            {/* X button removed to avoid confusion with main close button */}
+                            {isVideoLoading && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
+                                <Loader2 className="w-8 h-8 animate-spin" />
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div
                             className="relative cursor-pointer group"
-                            onClick={async () => {
-                              const playbackUrl = e621Api.getVideoPlaybackUrl(localPost);
-                              if (!playbackUrl) {
-                                toast.error('Formato video non supportato sul dispositivo');
-                                return;
-                              }
-
-                              const urlType = playbackUrl.includes('_720p')
-                                ? '720p'
-                                : playbackUrl.includes('_480p')
-                                  ? '480p'
-                                  : playbackUrl.includes('_alt.mp4')
-                                    ? 'MP4'
-                                    : 'MP4';
-
-                              try {
-                                const success = await nativeVideoPlayer.playFullscreen(playbackUrl, `Post #${localPost.id}`);
-                                if (!success) {
-                                  setInAppVideoUrl(playbackUrl);
-                                  toast.info(`Riproduzione integrata (${urlType})`);
-                                }
-                              } catch (err) {
-                                console.error(err);
-                                setInAppVideoUrl(playbackUrl);
-                                toast.error(`Riproduzione integrata (${urlType})`, {
-                                  description: err instanceof Error ? err.message : String(err),
-                                });
-                              }
-                            }}
+                            onClick={handlePlayVideo}
                           >
                             <img
                               src={localPost.sample?.url || localPost.preview.url || ''}
