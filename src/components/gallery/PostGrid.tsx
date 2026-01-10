@@ -151,7 +151,8 @@ export function PostGrid({
         className="w-full overflow-auto"
         style={{ height: '100vh' }}
       >
-        <div className="px-2">
+        <div 154
+        >
           {/* Virtual scrolling container */}
           <div
             style={{
@@ -171,7 +172,7 @@ export function PostGrid({
                   <div
                     key={virtualRow.key}
                     data-index={virtualRow.index}
-            className="grid"                    style={{
+            className="grid gap-2 mb-2"                    style={{
                       gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
                                   gridAutoRows: 'max-content',
                     }}
