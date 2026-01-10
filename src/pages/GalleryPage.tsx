@@ -342,7 +342,6 @@ export default function GalleryPage() {
         setPosts(newPosts);
         setCachedPosts(newPosts, currentTags, ratingFilter, mediaFilter);
         setHasMore(newPosts.length === 40);
-        toast.success('Galleria aggiornata');
       } catch (error) {
         toast.error('Errore durante l\'aggiornamento');
       } finally {
@@ -458,7 +457,7 @@ export default function GalleryPage() {
         </div>
       </header>
       
-      <div style={{ height: 'calc(env(safe-area-inset-top, 0px) + 130px)' }} />
+      <div style={{ height: 'calc(env(safe-area-inset-top, 0px) + 80px)' }} />
 
       {connectionError ? (
         <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
