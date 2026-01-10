@@ -1,7 +1,6 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
 import { useSearchStore, useAuthStore, useUserInteractionsStore, useSettingsStore } from '@/stores/appStore';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { X, Download, ExternalLink, ChevronLeft, ChevronRight, Plus, Minus, ChevronDown, ChevronUp, Play, ThumbsUp, ThumbsDown, MessageCircle, Star, Loader2, Share2 } from 'lucide-react';
@@ -200,7 +199,8 @@ export function PostViewer({
     };
   }, [isOpen, post?.id]);
 
-  if (!localPost) return null;
+  // NO RENDERING IF NOT OPEN OR NO POST
+  if (!isOpen || !localPost) return null;
 
   const isVideo = localPost.file.ext === 'webm' || localPost.file.ext === 'mp4';
   const mediaUrl = e621Api.getSampleUrl(localPost) || e621Api.getDownloadUrl(localPost);
@@ -487,366 +487,274 @@ export function PostViewer({
     </div>
   );
 
-  // Mobile Layout
-  if (isMobile) {
-    return (
-      <>
-        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-          <DialogContent 
-            hideCloseButton 
-            className="max-w-full w-full h-[100dvh] p-0 gap-0 bg-background border-none rounded-none"
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            style={{
-              paddingTop: 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 0px))',
-              paddingBottom: 'max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px))',
-            }}
-          >
-            <DialogDescription className="sr-only">Visualizzatore post {localPost.id}</DialogDescription>
-            <div ref={containerRef} className="relative flex flex-col h-full overflow-hidden">
-              <div className="flex items-center justify-between p-3 border-b border-border bg-background/95 backdrop-blur-sm z-10">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-mono text-muted-foreground">#{localPost.id}</span>
-                  <span className={cn("text-sm font-medium", ratingColors[localPost.rating])}>
-                    {ratingLabels[localPost.rating]}
-                  </span>
-                  {isLoadingStats && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleShare}
-                    disabled={isSharing}
-                    className="p-2 rounded-lg hover:bg-secondary transition-colors"
-                    title="Condividi"
-                  >
-                    {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={handleDownload}
-                    disabled={isDownloading}
-                    className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                  >
-                    {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={handleClose}
-                    className="p-2 rounded-lg hover:bg-secondary transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <motion.div 
-                className="flex-1 flex flex-col overflow-hidden"
-                drag="y"
-                dragDirectionLock
-                dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
-                dragElastic={0.2}
-                onDragEnd={handleDragEnd}
-              >
-                {/* Video renders WITHOUT AnimatePresence to prevent Android crash */}
-                <div
-                  className="relative flex items-center justify-center bg-background overflow-hidden"
-                  style={{ height: mobileInfoExpanded ? '40%' : '100%', transition: 'height 0.3s' }}
-                >
-                  {hasPrevious && onPrevious && (
-                    <button
-                      onClick={onPrevious}
-                      className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors z-10"
-                    >
-                      <ChevronLeft className="w-6 h-6" />
-                    </button>
-                  )}
-                  {hasNext && onNext && (
-                    <button
-                      onClick={onNext}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors z-10"
-                    >
-                      <ChevronRight className="w-6 h-6" />
-                    </button>
-                  )}
-
-                  {isVideo ? (
-                    showVideo ? <VideoPlayer /> : <VideoThumbnail />
-                  ) : (
-                    <AnimatePresence mode="wait">
-                      <motion.img
-                        key={localPost.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        src={mediaUrl || ''}
-                        alt={`Post ${localPost.id}`}
-                        className="max-w-full max-h-full object-contain"
-                      />
-                    </AnimatePresence>
-                  )}
-                </div>
-
-                <div className="flex justify-center py-2 bg-background">
-                  <div className="w-12 h-1 rounded-full bg-muted-foreground/30" />
-                </div>
-
-                <div className="flex items-center justify-around p-3 border-t border-border bg-background">
-                  <button 
-                    onClick={handleLike}
-                    disabled={isLiking}
-                    className="flex flex-col items-center gap-1 p-2"
-                  >
-                    {isLiking ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <ThumbsUp className={cn("w-5 h-5", userVote === 1 && "fill-primary text-primary")} />
-                    )}
-                    <span className="text-xs">{localPost.score.up}</span>
-                  </button>
-                  <button 
-                    onClick={handleDislike}
-                    disabled={isDisliking}
-                    className="flex flex-col items-center gap-1 p-2"
-                  >
-                    {isDisliking ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <ThumbsDown className={cn("w-5 h-5", userVote === -1 && "fill-destructive text-destructive")} />
-                    )}
-                    <span className="text-xs">{localPost.score.down}</span>
-                  </button>
-                  <button 
-                    onClick={handleFavorite}
-                    disabled={isFavoriting}
-                    className="flex flex-col items-center gap-1 p-2"
-                  >
-                    {isFavoriting ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Star className={cn("w-5 h-5", (userFavorited || localPost.is_favorited) && "fill-primary text-primary")} />
-                    )}
-                    <span className="text-xs">{localPost.fav_count}</span>
-                  </button>
-                  <button 
-                    onClick={() => setShowComments(true)}
-                    className="flex flex-col items-center gap-1 p-2"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    <span className="text-xs">{localPost.comment_count}</span>
-                  </button>
-                  <button
-                    onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
-                    className="flex flex-col items-center gap-1 p-2"
-                  >
-                    {mobileInfoExpanded ? (
-                      <ChevronDown className="w-5 h-5" />
-                    ) : (
-                      <ChevronUp className="w-5 h-5" />
-                    )}
-                    <span className="text-xs">Info</span>
-                  </button>
-                </div>
-
-                <AnimatePresence>
-                  {mobileInfoExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="overflow-hidden border-t border-border flex flex-col"
-                      onTouchStartCapture={(e) => e.stopPropagation()}
-                      onPointerDownCapture={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => {
-                        e.stopPropagation();
-                        const t = e.touches[0];
-                        if (!t) return;
-                        startInfoSwipe(t.clientX, t.clientY, infoScrollRef.current?.scrollTop ?? 0);
-                      }}
-                      onTouchMove={(e) => {
-                        const t = e.touches[0];
-                        const s = infoSwipeRef.current;
-                        if (!t || !s) return;
-
-                        const dx = t.clientX - s.startX;
-                        const dy = t.clientY - s.startY;
-                        const scrollTop = infoScrollRef.current?.scrollTop ?? 0;
-
-                        if (scrollTop <= 0 && s.startScrollTop <= 0 && dy > 0 && Math.abs(dy) > Math.abs(dx)) {
-                          e.stopPropagation();
-                        }
-
-                        handleInfoSwipeMove(dx, dy, scrollTop);
-                      }}
-                      onTouchEnd={endInfoSwipe}
-                      onTouchCancel={endInfoSwipe}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        startInfoSwipe(e.clientX, e.clientY, infoScrollRef.current?.scrollTop ?? 0);
-                      }}
-                      onPointerMove={(e) => {
-                        const s = infoSwipeRef.current;
-                        if (!s) return;
-                        handleInfoSwipeMove(
-                          e.clientX - s.startX,
-                          e.clientY - s.startY,
-                          infoScrollRef.current?.scrollTop ?? 0
-                        );
-                      }}
-                      onPointerUp={endInfoSwipe}
-                      onPointerCancel={endInfoSwipe}
-                    >
-                      <div className="flex justify-center py-3 bg-card cursor-grab active:cursor-grabbing touch-none">
-                        <div className="w-12 h-1 rounded-full bg-muted-foreground/50" />
-                      </div>
-
-                      <div
-                        ref={infoScrollRef}
-                        className="h-[40vh] overflow-y-auto p-4 space-y-4 bg-card"
-                      >
-                        <div className="space-y-2">
-                          <h3 className="font-semibold text-sm">Stats</h3>
-                          <div className="grid grid-cols-3 gap-2 text-sm">
-                            <div className="flex items-center gap-2">
-                              <Star className={cn("w-4 h-4", localPost.is_favorited && "fill-primary text-primary")} />
-                              <span>{localPost.fav_count}</span>
-                            </div>
-                            <div>Score: {localPost.score.total}</div>
-                            <div className="text-muted-foreground">
-                              {localPost.file.width}×{localPost.file.height}
-                            </div>
-                          </div>
-                        </div>
-
-                        {localPost.sources.length > 0 && (
-                          <div className="space-y-2">
-                            <h3 className="font-semibold text-sm">Sources</h3>
-                            <div className="space-y-1">
-                              {localPost.sources.slice(0, 3).map((source, i) => (
-                                <a
-                                  key={i}
-                                  href={source}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 text-xs text-accent hover:underline truncate"
-                                >
-                                  <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                                  <span className="truncate">{source}</span>
-                                </a>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-semibold text-sm">Tags ({allTags.length})</h3>
-                            <p className="text-xs text-muted-foreground">
-                              Tap per aggiungere/rimuovere
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {displayedTags.map(renderTag)}
-                          </div>
-                          {hiddenTagsCount > 0 && (
-                            <button
-                              onClick={() => setShowAllTags(!showAllTags)}
-                              className="flex items-center gap-1 text-xs text-primary hover:underline"
-                            >
-                              {showAllTags ? (
-                                <>
-                                  <ChevronUp className="w-3 h-3" />
-                                  Mostra meno
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="w-3 h-3" />
-                                  Mostra altri {hiddenTagsCount} tag
-                                </>
-                              )}
-                            </button>
-                          )}
-                          
-                          {pendingTagChanges.size > 0 && (
-                            <p className="text-xs text-primary bg-primary/10 p-2 rounded">
-                              {pendingTagChanges.size} tag modificati. La ricerca partirà alla chiusura.
-                            </p>
-                          )}
-                        </div>
-
-                        {localPost.description && (
-                          <div className="space-y-2">
-                            <h3 className="font-semibold text-sm">Description</h3>
-                            <p className="text-xs text-muted-foreground whitespace-pre-wrap">
-                              {localPost.description}
-                            </p>
-                          </div>
-                        )}
-
-                        <button
-                          onClick={handleOpenOnE621}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                          <span>Apri su e621</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            </div>
-
-            <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Accesso richiesto</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Per utilizzare questa funzione devi accedere con il tuo account e621.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <Button variant="outline" onClick={() => setShowLoginDialog(false)}>
-                    <X className="w-4 h-4 mr-2" />
-                    Chiudi
-                  </Button>
-                  <Button onClick={() => {
-                    const { logout } = useAuthStore.getState();
-                    logout();
-                    navigate('/login');
-                  }}>
-                    Accedi
-                  </Button>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </DialogContent>
-        </Dialog>
-
-        <CommentsSheet
-          postId={localPost.id}
-          isOpen={showComments}
-          onClose={() => setShowComments(false)}
-        />
-
-        <FilterSheet isOpen={showFiltersSheet} onOpenChange={setShowFiltersSheet} />
-      </>
-    );
-  }
-
-  // Desktop Layout - keep AnimatePresence for images only
+  // FULLSCREEN OVERLAY - NO DIALOG WRAPPER (same as Shorts approach)
+  // This prevents Android WebView video crash in Modal context
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent hideCloseButton className="max-w-[95vw] max-h-[95vh] p-0 gap-0 bg-background/95 backdrop-blur-lg border-border overflow-hidden"
-          onTouchStart={(e) => e.stopPropagation()}
-          onTouchMove={(e) => e.stopPropagation()}
-          onTouchEnd={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <DialogTitle className="sr-only">Visualizzatore post {localPost.id}</DialogTitle>
-          <DialogDescription className="sr-only">Visualizzatore post {localPost.id}</DialogDescription>
-          <div className="relative flex flex-col h-[95vh]">
+      {/* Fullscreen overlay - directly mounted to body */}
+      <div 
+        className="fixed inset-0 z-50 bg-background"
+        style={{
+          paddingTop: isMobile ? 'max(env(safe-area-inset-top), var(--safe-area-inset-top, 0px))' : '0',
+          paddingBottom: isMobile ? 'max(env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px))' : '0',
+        }}
+      >
+        {isMobile ? (
+          // Mobile Layout
+          <div ref={containerRef} className="relative flex flex-col h-full overflow-hidden">
+            <div className="flex items-center justify-between p-3 border-b border-border bg-background/95 backdrop-blur-sm z-10">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-mono text-muted-foreground">#{localPost.id}</span>
+                <span className={cn("text-sm font-medium", ratingColors[localPost.rating])}>
+                  {ratingLabels[localPost.rating]}
+                </span>
+                {isLoadingStats && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleShare}
+                  disabled={isSharing}
+                  className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                  title="Condividi"
+                >
+                  {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className="p-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  {isDownloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={handleClose}
+                  className="p-2 rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <motion.div 
+              className="flex-1 flex flex-col overflow-hidden"
+              drag="y"
+              dragDirectionLock
+              dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
+              dragElastic={0.2}
+              onDragEnd={handleDragEnd}
+            >
+              {/* Video renders WITHOUT Dialog wrapper - same as Shorts */}
+              <div
+                className="relative flex items-center justify-center bg-background overflow-hidden"
+                style={{ height: mobileInfoExpanded ? '40%' : '100%', transition: 'height 0.3s' }}
+              >
+                {hasPrevious && onPrevious && (
+                  <button
+                    onClick={onPrevious}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors z-10"
+                  >
+                    <ChevronLeft className="w-6 h-6" />
+                  </button>
+                )}
+                {hasNext && onNext && (
+                  <button
+                    onClick={onNext}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors z-10"
+                  >
+                    <ChevronRight className="w-6 h-6" />
+                  </button>
+                )}
+
+                {isVideo ? (
+                  showVideo ? <VideoPlayer /> : <VideoThumbnail />
+                ) : (
+                  <AnimatePresence mode="wait">
+                    <motion.img
+                      key={localPost.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      src={mediaUrl || ''}
+                      alt={`Post ${localPost.id}`}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </AnimatePresence>
+                )}
+              </div>
+
+              <div className="flex justify-center py-2 bg-background">
+                <div className="w-12 h-1 rounded-full bg-muted-foreground/30" />
+              </div>
+
+              <div className="flex items-center justify-around p-3 border-t border-border bg-background">
+                <button 
+                  onClick={handleLike}
+                  disabled={isLiking}
+                  className="flex flex-col items-center gap-1 p-2"
+                >
+                  {isLiking ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <ThumbsUp className={cn("w-5 h-5", userVote === 1 && "fill-primary text-primary")} />
+                  )}
+                  <span className="text-xs">{localPost.score.up}</span>
+                </button>
+                <button 
+                  onClick={handleDislike}
+                  disabled={isDisliking}
+                  className="flex flex-col items-center gap-1 p-2"
+                >
+                  {isDisliking ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <ThumbsDown className={cn("w-5 h-5", userVote === -1 && "fill-destructive text-destructive")} />
+                  )}
+                  <span className="text-xs">{localPost.score.down}</span>
+                </button>
+                <button 
+                  onClick={handleFavorite}
+                  disabled={isFavoriting}
+                  className="flex flex-col items-center gap-1 p-2"
+                >
+                  {isFavoriting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Star className={cn("w-5 h-5", (userFavorited || localPost.is_favorited) && "fill-primary text-primary")} />
+                  )}
+                  <span className="text-xs">{localPost.fav_count}</span>
+                </button>
+                <button 
+                  onClick={() => setShowComments(true)}
+                  className="flex flex-col items-center gap-1 p-2"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                  <span className="text-xs">{localPost.comment_count}</span>
+                </button>
+                <button
+                  onClick={() => setMobileInfoExpanded(!mobileInfoExpanded)}
+                  className="flex flex-col items-center gap-1 p-2"
+                >
+                  {mobileInfoExpanded ? (
+                    <ChevronDown className="w-5 h-5" />
+                  ) : (
+                    <ChevronUp className="w-5 h-5" />
+                  )}
+                  <span className="text-xs">Info</span>
+                </button>
+              </div>
+
+              <AnimatePresence>
+                {mobileInfoExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden border-t border-border flex flex-col"
+                  >
+                    <div className="flex justify-center py-3 bg-card cursor-grab active:cursor-grabbing touch-none">
+                      <div className="w-12 h-1 rounded-full bg-muted-foreground/50" />
+                    </div>
+
+                    <div
+                      ref={infoScrollRef}
+                      className="h-[40vh] overflow-y-auto p-4 space-y-4 bg-card"
+                    >
+                      <div className="space-y-2">
+                        <h3 className="font-semibold text-sm">Stats</h3>
+                        <div className="grid grid-cols-3 gap-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Star className={cn("w-4 h-4", localPost.is_favorited && "fill-primary text-primary")} />
+                            <span>{localPost.fav_count}</span>
+                          </div>
+                          <div>Score: {localPost.score.total}</div>
+                          <div className="text-muted-foreground">
+                            {localPost.file.width}×{localPost.file.height}
+                          </div>
+                        </div>
+                      </div>
+
+                      {localPost.sources.length > 0 && (
+                        <div className="space-y-2">
+                          <h3 className="font-semibold text-sm">Sources</h3>
+                          <div className="space-y-1">
+                            {localPost.sources.slice(0, 3).map((source, i) => (
+                              <a
+                                key={i}
+                                href={source}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-xs text-accent hover:underline truncate"
+                              >
+                                <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                                <span className="truncate">{source}</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-semibold text-sm">Tags ({allTags.length})</h3>
+                          <p className="text-xs text-muted-foreground">
+                            Tap per aggiungere/rimuovere
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {displayedTags.map(renderTag)}
+                        </div>
+                        {hiddenTagsCount > 0 && (
+                          <button
+                            onClick={() => setShowAllTags(!showAllTags)}
+                            className="flex items-center gap-1 text-xs text-primary hover:underline"
+                          >
+                            {showAllTags ? (
+                              <>
+                                <ChevronUp className="w-3 h-3" />
+                                Mostra meno
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-3 h-3" />
+                                Mostra altri {hiddenTagsCount} tag
+                              </>
+                            )}
+                          </button>
+                        )}
+                        
+                        {pendingTagChanges.size > 0 && (
+                          <p className="text-xs text-primary bg-primary/10 p-2 rounded">
+                            {pendingTagChanges.size} tag modificati. La ricerca partirà alla chiusura.
+                          </p>
+                        )}
+                      </div>
+
+                      {localPost.description && (
+                        <div className="space-y-2">
+                          <h3 className="font-semibold text-sm">Description</h3>
+                          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                            {localPost.description}
+                          </p>
+                        </div>
+                      )}
+
+                      <button
+                        onClick={handleOpenOnE621}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        <span>Apri su e621</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+        ) : (
+          // Desktop Layout
+          <div className="relative flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b border-border bg-background/80">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-mono text-muted-foreground">#{localPost.id}</span>
@@ -960,7 +868,7 @@ export function PostViewer({
                   </button>
                 )}
 
-                {/* Video without AnimatePresence, images with AnimatePresence */}
+                {/* Video without Dialog wrapper, images with AnimatePresence */}
                 {isVideo ? (
                   <div className="max-w-full max-h-full">
                     {showVideo ? <VideoPlayer /> : <VideoThumbnail />}
@@ -1075,38 +983,41 @@ export function PostViewer({
               </AnimatePresence>
             </div>
           </div>
+        )}
+      </div>
 
-          <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Accesso richiesto</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Per utilizzare questa funzione devi accedere con il tuo account e621.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <Button variant="outline" onClick={() => setShowLoginDialog(false)}>
-                  <X className="w-4 h-4 mr-2" />
-                  Chiudi
-                </Button>
-                <Button onClick={() => {
-                  const { logout } = useAuthStore.getState();
-                  logout();
-                  navigate('/login');
-                }}>
-                  Accedi
-                </Button>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </DialogContent>
-      </Dialog>
+      {/* Separate AlertDialog for login - NOT inside main dialog */}
+      <AlertDialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Accesso richiesto</AlertDialogTitle>
+            <AlertDialogDescription>
+              Per utilizzare questa funzione devi accedere con il tuo account e621.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setShowLoginDialog(false)}>
+              <X className="w-4 h-4 mr-2" />
+              Chiudi
+            </Button>
+            <Button onClick={() => {
+              const { logout } = useAuthStore.getState();
+              logout();
+              navigate('/login');
+            }}>
+              Accedi
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CommentsSheet
         postId={localPost.id}
         isOpen={showComments}
         onClose={() => setShowComments(false)}
       />
+
+      <FilterSheet isOpen={showFiltersSheet} onOpenChange={setShowFiltersSheet} />
     </>
   );
 }
