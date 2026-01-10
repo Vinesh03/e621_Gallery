@@ -5,7 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-    ropdownMenuTrigger,
+    DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Heart, LogOut, User, ChevronDown, Settings } from 'lucide-react';
 
