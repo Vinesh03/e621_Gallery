@@ -457,7 +457,8 @@ export default function GalleryPage() {
         </div>
       </header>
       
-      <div style={{ height: 'calc(env(safe-area-inset-top, 0px) + 80px)' }} />
+      <div style={{ height: 'calc(env(safe-area-inset-top, 0px) + 200
+        ' }} />
 
       {connectionError ? (
         <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
