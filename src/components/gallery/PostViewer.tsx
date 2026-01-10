@@ -376,7 +376,6 @@ export function PostViewer({
 
   const handlePlayVideo = () => {
     setShowVideo(true);
-    // Try to play the video after a short delay to ensure it's rendered
     setTimeout(() => {
       if (videoRef.current) {
         videoRef.current.play().catch(err => {
@@ -446,7 +445,7 @@ export function PostViewer({
     );
   };
 
-  // Video player component - Uses sample URL like ShortsViewer
+  // Video player - NO ANIMATION WRAPPER to prevent Android crash
   const VideoPlayer = () => (
     <div className="relative w-full h-full flex items-center justify-center bg-black">
       <video
@@ -546,46 +545,46 @@ export function PostViewer({
                 dragDirectionLock
                 dragConstraints={{ top: 0, bottom: 0, left: 0, right: 0 }}
                 dragElastic={0.2}
-                onDragEnd={handleDragEnd}>
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={localPost.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ 
-                      opacity: 1,
-                      height: mobileInfoExpanded ? '40%' : '100%'
-                    }}
-                    transition={{ duration: 0.3 }}
-                    className="relative flex items-center justify-center bg-background overflow-hidden"
-                  >
-                    {hasPrevious && onPrevious && (
-                      <button
-                        onClick={onPrevious}
-                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors z-10"
-                      >
-                        <ChevronLeft className="w-6 h-6" />
-                      </button>
-                    )}
-                    {hasNext && onNext && (
-                      <button
-                        onClick={onNext}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors z-10"
-                      >
-                        <ChevronRight className="w-6 h-6" />
-                      </button>
-                    )}
+                onDragEnd={handleDragEnd}
+              >
+                {/* Video renders WITHOUT AnimatePresence to prevent Android crash */}
+                <div
+                  className="relative flex items-center justify-center bg-background overflow-hidden"
+                  style={{ height: mobileInfoExpanded ? '40%' : '100%', transition: 'height 0.3s' }}
+                >
+                  {hasPrevious && onPrevious && (
+                    <button
+                      onClick={onPrevious}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors z-10"
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </button>
+                  )}
+                  {hasNext && onNext && (
+                    <button
+                      onClick={onNext}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 hover:bg-background transition-colors z-10"
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </button>
+                  )}
 
-                    {isVideo ? (
-                      showVideo ? <VideoPlayer /> : <VideoThumbnail />
-                    ) : (
-                      <img
+                  {isVideo ? (
+                    showVideo ? <VideoPlayer /> : <VideoThumbnail />
+                  ) : (
+                    <AnimatePresence mode="wait">
+                      <motion.img
+                        key={localPost.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                         src={mediaUrl || ''}
                         alt={`Post ${localPost.id}`}
                         className="max-w-full max-h-full object-contain"
                       />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                    </AnimatePresence>
+                  )}
+                </div>
 
                 <div className="flex justify-center py-2 bg-background">
                   <div className="w-12 h-1 rounded-full bg-muted-foreground/30" />
@@ -835,7 +834,7 @@ export function PostViewer({
     );
   }
 
-  // Desktop Layout
+  // Desktop Layout - keep AnimatePresence for images only
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -961,26 +960,25 @@ export function PostViewer({
                   </button>
                 )}
 
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={localPost.id}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.2 }}
-                    className="max-w-full max-h-full"
-                  >
-                    {isVideo ? (
-                      showVideo ? <VideoPlayer /> : <VideoThumbnail />
-                    ) : (
-                      <img
-                        src={mediaUrl || ''}
-                        alt={`Post ${localPost.id}`}
-                        className="max-w-full max-h-[80vh] object-contain rounded-lg"
-                      />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                {/* Video without AnimatePresence, images with AnimatePresence */}
+                {isVideo ? (
+                  <div className="max-w-full max-h-full">
+                    {showVideo ? <VideoPlayer /> : <VideoThumbnail />}
+                  </div>
+                ) : (
+                  <AnimatePresence mode="wait">
+                    <motion.img
+                      key={localPost.id}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      src={mediaUrl || ''}
+                      alt={`Post ${localPost.id}`}
+                      className="max-w-full max-h-[80vh] object-contain rounded-lg"
+                    />
+                  </AnimatePresence>
+                )}
               </div>
 
               <AnimatePresence>
