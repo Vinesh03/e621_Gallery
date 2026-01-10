@@ -174,6 +174,7 @@ export function PostGrid({
                     className="grid gap-2 mb-2"
                     style={{
                       gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+                                  gridAutoRows: 'max-content',
                     }}
                   >
                     {rowItems.map((post) => (
