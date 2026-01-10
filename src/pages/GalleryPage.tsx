@@ -481,9 +481,9 @@ export default function GalleryPage() {
         />
       )}
 
-      460
+      
         
-        post={selectedPost}
+<PostViewer         post={selectedPost}
         isOpen={!!selectedPost}
         onClose={handleCloseViewer}
         onPrevious={selectedIndex > 0 ? () => {
