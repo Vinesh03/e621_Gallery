@@ -5,8 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+    ropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Heart, LogOut, User, ChevronDown, Settings } from 'lucide-react';
 
@@ -51,7 +50,6 @@ export function UserMenu() {
           <User className="w-4 h-4" />
           {displayName}
         </div>
-        <DropdownMenuSeparator />
         {!isGuest && (
           <DropdownMenuItem onClick={handleFavorites} className="cursor-pointer">
             <Heart className="w-4 h-4 mr-2" />
