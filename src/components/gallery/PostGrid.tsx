@@ -151,7 +151,7 @@ export function PostGrid({
         className="w-full overflow-auto"
         style={{ height: '100vh' }}
       >
-        <div 154
+        <di>
         >
           {/* Virtual scrolling container */}
           <div
