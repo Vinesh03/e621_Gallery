@@ -205,8 +205,8 @@ export function PostViewer({
   const isVideo = localPost.file.ext === 'webm' || localPost.file.ext === 'mp4';
   const mediaUrl = e621Api.getSampleUrl(localPost) || e621Api.getDownloadUrl(localPost);
   const downloadUrl = e621Api.getDownloadUrl(localPost);
-  // Use sample URL for video playback - same as ShortsViewer
-  const videoUrl = localPost.sample?.url || localPost.file.url;
+  // Use getVideoPlaybackUrl to get MP4 only (avoids WebM crashes on Android)
+  const videoUrl = e621Api.getVideoPlaybackUrl(localPost);
   const e621Url = `https://e621.net/posts/${localPost.id}`;
 
   const handleDownload = async () => {
@@ -446,24 +446,45 @@ export function PostViewer({
   };
 
   // Video player - NO ANIMATION WRAPPER to prevent Android crash
-  const VideoPlayer = () => (
-    <div className="relative w-full h-full flex items-center justify-center bg-black">
-      <video
-        ref={videoRef}
-        src={videoUrl || ''}
-        className="w-full h-full object-contain"
-        controls
-        autoPlay
-        muted
-        loop
-        playsInline
-        onError={(e) => {
-          console.error('[Video] Error playing:', e);
-          toast.error('Errore nel caricamento video');
-        }}
-      />
-    </div>
-  );
+  const VideoPlayer = () => {
+    // If no MP4 available, show a message with option to open in browser
+    if (!videoUrl) {
+      return (
+        <div className="relative w-full h-full flex flex-col items-center justify-center bg-black gap-4 px-4">
+          <p className="text-white text-center">
+            Questo video non è disponibile per la riproduzione in-app (formato WebM).
+          </p>
+          <Button
+            onClick={handleOpenOnE621}
+            variant="secondary"
+            className="flex items-center gap-2"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Apri su e621
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative w-full h-full flex items-center justify-center bg-black">
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          className="w-full h-full object-contain"
+          controls
+          autoPlay
+          muted
+          loop
+          playsInline
+          onError={(e) => {
+            console.error('[Video] Error playing:', e);
+            toast.error('Errore nel caricamento video');
+          }}
+        />
+      </div>
+    );
+  };
 
   // Video thumbnail
   const VideoThumbnail = () => (
