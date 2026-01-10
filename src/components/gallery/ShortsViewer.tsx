@@ -605,26 +605,48 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
             transition={{ duration: 0.25, ease: 'easeOut' }}
             className="w-full h-full flex items-center justify-center"
           >
-            {currentPost && (
-              <div className="flex flex-col items-center gap-4 w-full h-full justify-center">
-                                                                   <video
-                  ref={(el) => {
-                    if (el) videoRefs.current.set(currentIndex, el);
-                  }}
-                  src={e621Api.getVideoPlaybackUrl(currentPost) || ''}
-                  className="max-w-full max-h-[80vh] object-contain"
-                  controls
-                  autoPlay
-                  loop
-                  playsInline
-                  muted
-                  preload="metadata"
-                  onError={() => {
-                    toast.error('Video non riproducibile');
-                  }}
-                />
-              </div>
-            )}
+            {currentPost && (() => {
+              const videoPlaybackUrl = e621Api.getVideoPlaybackUrl(currentPost);
+              
+              if (!videoPlaybackUrl) {
+                return (
+                  <div className="flex flex-col items-center justify-center gap-4 text-center px-4">
+                    <p className="text-foreground">
+                      Questo video non è disponibile per la riproduzione in-app (formato WebM).
+                    </p>
+                    <Button
+                      onClick={handleOpenOnE621}
+                      variant="secondary"
+                      className="flex items-center gap-2"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Apri su e621
+                    </Button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="flex flex-col items-center gap-4 w-full h-full justify-center">
+                  <video
+                    ref={(el) => {
+                      if (el) videoRefs.current.set(currentIndex, el);
+                    }}
+                    src={videoPlaybackUrl}
+                    className="max-w-full max-h-[80vh] object-contain"
+                    controls
+                    autoPlay
+                    loop
+                    playsInline
+                    muted
+                    preload="metadata"
+                    onError={() => {
+                      toast.error('Video non riproducibile');
+                    }}
+                  />
+                </div>
+              );
+            })()}
           </motion.div>
         </AnimatePresence>
 
