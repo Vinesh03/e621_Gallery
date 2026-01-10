@@ -457,10 +457,8 @@ export default function GalleryPage() {
         </div>
       </header>
       
-      <div style={{ height: 'calc(env(safe-area-inset-top, 0px) + 200
-        ' }} />
-
-      {connectionError ? (
+      <div style={{ height: 'calc(env(safe-area-inset-top, 0px) + 200px)'
+}} />  {connectionError ? (
         <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
       ) : viewMode === 'gallery' ? (
         <main className="py-0">
@@ -483,7 +481,8 @@ export default function GalleryPage() {
         />
       )}
 
-      <PostViewer
+      460
+        
         post={selectedPost}
         isOpen={!!selectedPost}
         onClose={handleCloseViewer}
