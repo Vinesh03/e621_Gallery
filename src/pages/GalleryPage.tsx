@@ -11,7 +11,7 @@ import { SplashScreen } from '@/components/SplashScreen';
 import { ConnectionError } from '@/components/ConnectionError';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { LayoutGrid, Play, RefreshCw } from 'lucide-react';
+import { LayoutGrid, Play } from 'lucide-react';
 import { UserMenu } from '@/components/gallery/UserMenu';
 import { AnimatePresence } from 'framer-motion';
 import { PageTransition } from '@/components/PageTransition';
@@ -28,7 +28,6 @@ export default function GalleryPage() {
   const [shortsPosts, setShortsPosts] = useState<E621Post[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isShortsLoading, setIsShortsLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [shortsPage, setShortsPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -241,6 +240,10 @@ export default function GalleryPage() {
 
   const handleLoadMore = async () => {
     if (isFetchingRef.current) return;
+        // Auto-refresh gallery when search is initiated
+    setPage(1);
+    setPosts([]);
+    fetchPosts(tags, 1, true);
     isFetchingRef.current = true;
     try {
       const nextPage = pageRef.current + 1;
@@ -288,6 +291,9 @@ export default function GalleryPage() {
   const handleCloseViewer = (triggerSearch?: boolean) => {
     setSelectedPost(null);
     setSelectedIndex(-1);
+        // Auto-refresh gallery when closing viewer
+    setPage(1);
+    fetchPosts(currentTags, 1, false);
     
     if (triggerSearch) {
       setPage(1);
@@ -369,7 +375,8 @@ export default function GalleryPage() {
     const diffX = touchStartX.current - touchEndX;
     const diffY = touchStartY.current - touchEndY;
     
-    if (isPulling.current && pullDistance > 0) {
+    if (isPulling.current && 397
+       ) {
       handlePullEnd();
       return;
     }
@@ -394,20 +401,6 @@ export default function GalleryPage() {
         onTouchMove={viewMode === 'gallery' ? handleTouchMove : undefined}
         onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}
       >
-      {pullDistance > 0 && viewMode === 'gallery' && (
-        <div 
-          className="absolute top-0 left-0 right-0 flex items-center justify-center bg-background z-50 transition-all"
-          style={{ height: pullDistance, paddingTop: 'max(env(safe-area-inset-top), 12px)' }}
-        >
-          <RefreshCw 
-            className={cn(
-              "w-6 h-6 text-primary transition-transform",
-              isRefreshing && "animate-spin",
-              pullDistance > 80 && "scale-110"
-            )} 
-          />
-        </div>
-      )}
       <header
         className="fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
@@ -457,7 +450,7 @@ export default function GalleryPage() {
         </div>
       </header>
       
-      <div style={{ height: 'calc(env(safe-area-inset-top, 0px) + 200px)'
+      <div style={{ height: 'calc(env(safe-area-inset-top, 0px) + 100px)'
 }} />  {connectionError ? (
         <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
       ) : viewMode === 'gallery' ? (
