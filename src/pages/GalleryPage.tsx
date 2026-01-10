@@ -410,11 +410,11 @@ export default function GalleryPage() {
         </div>
       )}
       <header
-        className="fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border"
+        className="fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="container py-2">
-          <div className="flex items-center justify-end h-[20px]">
+          <div className="flex items-center justify-end h-[20px]">border-b border-border
             <UserMenu />
           </div>
           
