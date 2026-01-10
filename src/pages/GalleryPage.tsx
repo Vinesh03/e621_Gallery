@@ -406,7 +406,7 @@ export default function GalleryPage() {
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="container py-2">
-          <div className="flex items-center justify-end h-[20px]">
+          <div className="flex items-center justify-end h-h-auto">
             
             <UserMenu />
           </div>
