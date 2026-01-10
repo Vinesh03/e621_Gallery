@@ -171,8 +171,7 @@ export function PostGrid({
                   <div
                     key={virtualRow.key}
                     data-index={virtualRow.index}
-                    className="grid gap-2 mb-2"
-                    style={{
+            className="grid"                    style={{
                       gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
                                   gridAutoRows: 'max-content',
                     }}
