@@ -403,7 +403,7 @@ export default function GalleryPage() {
       >
       <header
         className="fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur"
-        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
       >
         <div className="container py-2">
           <div className="flex items-center justify-end h-h-auto">
@@ -450,7 +450,7 @@ export default function GalleryPage() {
         </div>
       </header>
       
-      <div style={{ height: 'calc(env(safe-area-inset-top, 0px) + 100px)'
+      <div style={{ height: 'calc(calc(env(safe-area-inset-top, 0px) + 8px) + 100px)'
 }} />  {connectionError ? (
         <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
       ) : viewMode === 'gallery' ? (
