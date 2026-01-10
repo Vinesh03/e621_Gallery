@@ -186,4 +186,4 @@ const App = () => {
 };
 
 export default App;
-export { queryClient, queryKeys };
+export { queryClient };
