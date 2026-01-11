@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { E621Post } from '@/types/e621';
-  ort { e621Api } from '@/services/e621Api';
+imp  ort { e621Api } from '@/services/e621Api';
 import { useSettingsStore, useSearchStore, useAuthStore } from '@/stores/appStore';
 import { PostGrid } from '@/components/gallery/PostGrid';
 import { PostViewer } from '@/components/gallery/PostViewer';
