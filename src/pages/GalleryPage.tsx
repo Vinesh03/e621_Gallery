@@ -36,6 +36,7 @@ export default function GalleryPage() {
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const [connectionError, setConnectionError] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   
   const pullStartY = useRef<number>(0);
@@ -243,7 +244,7 @@ export default function GalleryPage() {
         // Auto-refresh gallery when search is initiated
     setPage(1);
     setPosts([]);
-    fetchPosts(tags, 1, true);
+    fetchPosts(currentTags, 1, true);
     isFetchingRef.current = true;
     try {
       const nextPage = pageRef.current + 1;
@@ -375,9 +376,7 @@ export default function GalleryPage() {
     const diffX = touchStartX.current - touchEndX;
     const diffY = touchStartY.current - touchEndY;
     
-    if (isPulling.current && 397
-       ) {
-      handlePullEnd();
+if (isPulling.current) {      handlePullEnd();
       return;
     }
     
