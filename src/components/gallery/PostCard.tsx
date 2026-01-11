@@ -62,13 +62,13 @@ export function PostCard({ post, onClick, onDownload, index = 0 }: PostCardProps
       className="masonry-item"
     >
       <div 
-        className="relative group rounded-lg overflow-hidden bg-muted cursor-pointer shadow-sm hover:shadow-lg transition-shadow"
+        className="relative group rounded-lg overflow-hidden bg-muted cursor-pointer shadow-sm hover:shadow-lg transition-sha aspect-squaredow"
         onClick={onClick}
       >
         <img
           src={previewUrl}
           alt={`Post ${post.id}`}
-          className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-h-full object-cover transition-transform duration-300 group-hover:scale-105"
           loading="lazy"
         />
         
