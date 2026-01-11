@@ -395,7 +395,7 @@ if (isPulling.current) {      handlePullEnd();
 
       <div
         ref={contentRef}
-        className="pt-[80] min-h-screen bg-background overflow-y-auto"
+        className="pt-[120px] min-h-screen bg-background overflow-y-auto"
         onTouchStart={viewMode === 'gallery' ? handleTouchStart : undefined}
         onTouchMove={viewMode === 'gallery' ? handleTouchMove : undefined}
         onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}

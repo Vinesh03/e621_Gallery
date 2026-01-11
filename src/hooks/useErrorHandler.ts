@@ -228,20 +228,20 @@ export function useGlobalErrorHandler() {
   useEffect(() => {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       event.preventDefault();
-      handleError(event.reason, 'Unhandled Promise Rejection');
+      handleError(event.reason);
     };
 
-    const handleError = (event: ErrorEvent) => {
+    const handleRuntimeError = (event: ErrorEvent) => {
       event.preventDefault();
-      handleError(event.error || event.message, 'Runtime Error');
+      handleError(event.error || event.message);
     };
 
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    window.addEventListener('error', handleError);
+    window.addEventListener('error', handleRuntimeError);
 
     return () => {
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-      window.removeEventListener('error', handleError);
+      window.removeEventListener('error', handleRuntimeError);
     };
   }, [handleError]);
 }
