@@ -13,12 +13,12 @@ interface EnhancedQueryOptions<TData, TError = Error> extends Omit<UseQueryOptio
   successMessage?: string;
 }
 
-interface EnhancedQueryResult<TData, TError = Error> extends UseQueryResult<TData, TError> {
+type EnhancedQueryResult<TData, TError = Error> = UseQueryResult<TData, TError> & {
   // Network status
   isOffline: boolean;
   // Manual retry function
   retry: () => void;
-}
+};
 
 /**
  * Enhanced useQuery hook with better error handling and user feedback
