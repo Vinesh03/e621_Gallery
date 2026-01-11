@@ -454,7 +454,7 @@ export default function GalleryPage() {
 }} />  {connectionError ? (
         <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
       ) : viewMode === 'gallery' ? (
-        <main className="py-0">
+        <main className="pt-12 pb-0">
           <PostGrid
             posts={posts}
             isLoading={isLoading}
