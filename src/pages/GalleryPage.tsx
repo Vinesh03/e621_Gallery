@@ -403,7 +403,7 @@ if (isPulling.current) {      handlePullEnd();
       >
       <header
         className="fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur will-change-transform"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)', transform: 'translateZ(0)' }}
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)', transform: 'translateZ(0)' }}
       >
         <div className="container py-2">
           <div className="flex items-center justify-end h-h-auto">
