@@ -395,14 +395,15 @@ if (isPulling.current) {      handlePullEnd();
 
       <div
         ref={contentRef}
-        className="pt-[135px] min-h-screen bg-background overflow-y-auto"
+        className="pt-[135px] min-h-screen bg-background overflow-y-auto will-change-scroll"
+        style={{ transform: 'translateZ(0)' }}
         onTouchStart={viewMode === 'gallery' ? handleTouchStart : undefined}
         onTouchMove={viewMode === 'gallery' ? handleTouchMove : undefined}
         onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}
       >
       <header
-        className="fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
+        className="fixed top-0 left-0 right-0 z-40 bg-background/95 backdrop-blur will-change-transform"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)', transform: 'translateZ(0)' }}
       >
         <div className="container py-2">
           <div className="flex items-center justify-end h-h-auto">
