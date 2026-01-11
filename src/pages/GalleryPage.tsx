@@ -450,7 +450,7 @@ export default function GalleryPage() {
         </div>
       </header>
       
-      <div style={{ height: '16px'
+      <div style={{ height: '50px'
 }} />  {connectionError ? (
         <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
       ) : viewMode === 'gallery' ? (
