@@ -395,7 +395,7 @@ if (isPulling.current) {      handlePullEnd();
 
       <div
         ref={contentRef}
-        className="pt-[135px] min-h-screen bg-background overflow-y-auto will-change-scroll"
+        className="pt-[115px] min-h-screen bg-background overflow-y-auto will-change-scroll"
         style={{ transform: 'translateZ(0)' }}
         onTouchStart={viewMode === 'gallery' ? handleTouchStart : undefined}
         onTouchMove={viewMode === 'gallery' ? handleTouchMove : undefined}
