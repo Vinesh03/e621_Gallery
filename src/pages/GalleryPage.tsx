@@ -402,11 +402,11 @@ if (isPulling.current) {      handlePullEnd();
         onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}
       >
       <header
-        className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur will-change-transform-"
+        className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur will-change-transform"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) - 8px)', transform: 'translateZ(0)' }}
       >
         <div className="container py-2">
-          <div className="flex items-center justify-end h-h-auto">
+          <div className="flex items-center justify-end h-auto">
             
             <UserMenu />
           </div>
@@ -453,7 +453,7 @@ if (isPulling.current) {      handlePullEnd();
 {connectionError ? (
         <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
       ) : viewMode === 'gallery' ? (
-        <main className="ppy-0">
+        <main className="py-0">
           <PostGrid
             posts={posts}
             isLoading={isLoading}
