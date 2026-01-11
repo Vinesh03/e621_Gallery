@@ -450,7 +450,7 @@ export default function GalleryPage() {
         </div>
       </header>
       
-}} />  {connectionError ? (
+{connectionError ? (
         <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
       ) : viewMode === 'gallery' ? (
         <main className="ppy-0">
