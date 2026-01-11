@@ -402,7 +402,7 @@ if (isPulling.current) {      handlePullEnd();
         onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}
       >
       <header
-        className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur willz-50change-transform"
+        className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur will-change-transform-"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) - 8px)', transform: 'translateZ(0)' }}
       >
         <div className="container py-2">
