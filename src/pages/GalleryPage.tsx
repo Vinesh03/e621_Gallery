@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { E621Post } from '@/types/e621';
-import { e621Api } from '@/services/e621Api';
+  ort { e621Api } from '@/services/e621Api';
 import { useSettingsStore, useSearchStore, useAuthStore } from '@/stores/appStore';
 import { PostGrid } from '@/components/gallery/PostGrid';
 import { PostViewer } from '@/components/gallery/PostViewer';
@@ -396,7 +396,7 @@ export default function GalleryPage() {
 
       <div
         ref={contentRef}
-        className="min-h-screen bg-background overflow-y-auto"
+        className="pt-[120px] min-h-screen bg-background overflow-y-auto"
         onTouchStart={viewMode === 'gallery' ? handleTouchStart : undefined}
         onTouchMove={viewMode === 'gallery' ? handleTouchMove : undefined}
         onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}
@@ -450,11 +450,10 @@ export default function GalleryPage() {
         </div>
       </header>
       
-      <div style={{ height: '50px'
 }} />  {connectionError ? (
         <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
       ) : viewMode === 'gallery' ? (
-        <main className="pt-12 pb-0">
+        <main className="ppy-0">
           <PostGrid
             posts={posts}
             isLoading={isLoading}
