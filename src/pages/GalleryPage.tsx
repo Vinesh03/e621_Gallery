@@ -393,102 +393,110 @@ if (isPulling.current) {      handlePullEnd();
         {showSplash && <SplashScreen />}
       </AnimatePresence>
 
-      <div
-        ref={contentRef}
-        className="pt-[135px] min-h-screen bg-background overflow-y-auto will-change-scroll"
-        style={{ transform: 'translateZ(0)' }}
-        onTouchStart={viewMode === 'gallery' ? handleTouchStart : undefined}
-        onTouchMove={viewMode === 'gallery' ? handleTouchMove : undefined}
-        onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}
-      >
-      <header
-        className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur will-change-transform"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) - 8px)', transform: 'translateZ(0)' }}
-      >
-        <div className="container py-2">
-          <div className="flex items-center justify-end h-auto">
-            
-            <UserMenu />
-          </div>
-          
-          <div className="flex items-center gap-2 mt-1 mb-2">
-            <button
-              onClick={() => {
-                setViewMode('gallery');
-                setCurrentTags('');
-              }}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors",
-                viewMode === 'gallery'
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary hover:bg-secondary/80"
-              )}
-            >
-              <LayoutGrid className="w-4 h-4" />
-              <span className="font-medium text-sm">Galleria</span>
-            </button>
-            <button
-              onClick={() => setViewMode('shorts')}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors",
-                viewMode === 'shorts'
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary hover:bg-secondary/80"
-              )}
-            >
-              <Play className="w-4 h-4" />
-              <span className="font-medium text-sm">Shorts</span>
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <SearchBar onSearch={handleSearch} />
+      <div className="min-h-screen bg-background">
+        {/* Keep header outside the scroll container so it never gets dragged/hidden by overscroll gestures */}
+        <header
+          className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur will-change-transform"
+          style={{ paddingTop: 'env(safe-area-inset-top, 0px)', transform: 'translateZ(0)' }}
+        >
+          <div className="container py-2">
+            <div className="flex items-center justify-end h-auto">
+              <UserMenu />
             </div>
-            <FilterSheet />
-          </div>
-        </div>
-      </header>
-      
-{connectionError ? (
-        <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
-      ) : viewMode === 'gallery' ? (
-        <main className="py-0">
-          <PostGrid
-            posts={posts}
-            isLoading={isLoading}
-            onPostClick={openViewer}
-            onDownload={handleDownload}
-            onLoadMore={handleLoadMore}
-            hasMore={hasMore}
-          />
-        </main>
-      ) : (
-        <ShortsViewer
-          posts={shortsPosts}
-          isLoading={isShortsLoading}
-          onLoadMore={handleLoadMoreShorts}
-          hasMore={hasMoreShorts}
-          onExit={() => setViewMode('gallery')}
-        />
-      )}
 
-      
-        
-<PostViewer         post={selectedPost}
-        isOpen={!!selectedPost}
-        onClose={handleCloseViewer}
-        onPrevious={selectedIndex > 0 ? () => {
-          setSelectedPost(posts[selectedIndex - 1]);
-          setSelectedIndex(selectedIndex - 1);
-        } : undefined}
-        onNext={selectedIndex < posts.length - 1 ? () => {
-          setSelectedPost(posts[selectedIndex + 1]);
-          setSelectedIndex(selectedIndex + 1);
-        } : undefined}
-        hasPrevious={selectedIndex > 0}
-        hasNext={selectedIndex < posts.length - 1}
-      />
+            <div className="flex items-center gap-2 mt-1 mb-2">
+              <button
+                onClick={() => {
+                  setViewMode('gallery');
+                  setCurrentTags('');
+                }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors",
+                  viewMode === 'gallery'
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary hover:bg-secondary/80"
+                )}
+              >
+                <LayoutGrid className="w-4 h-4" />
+                <span className="font-medium text-sm">Galleria</span>
+              </button>
+              <button
+                onClick={() => setViewMode('shorts')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors",
+                  viewMode === 'shorts'
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary hover:bg-secondary/80"
+                )}
+              >
+                <Play className="w-4 h-4" />
+                <span className="font-medium text-sm">Shorts</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <SearchBar onSearch={handleSearch} />
+              </div>
+              <FilterSheet />
+            </div>
+          </div>
+        </header>
+
+        <div
+          ref={contentRef}
+          className="pt-[135px] min-h-screen overflow-y-auto will-change-scroll"
+          onTouchStart={viewMode === 'gallery' ? handleTouchStart : undefined}
+          onTouchMove={viewMode === 'gallery' ? handleTouchMove : undefined}
+          onTouchEnd={viewMode === 'gallery' ? handleTouchEnd : undefined}
+        >
+          {connectionError ? (
+            <ConnectionError onRetry={handleRetry} isRetrying={isRetrying} />
+          ) : viewMode === 'gallery' ? (
+            <main className="py-0">
+              <PostGrid
+                posts={posts}
+                isLoading={isLoading}
+                onPostClick={openViewer}
+                onDownload={handleDownload}
+                onLoadMore={handleLoadMore}
+                hasMore={hasMore}
+              />
+            </main>
+          ) : (
+            <ShortsViewer
+              posts={shortsPosts}
+              isLoading={isShortsLoading}
+              onLoadMore={handleLoadMoreShorts}
+              hasMore={hasMoreShorts}
+              onExit={() => setViewMode('gallery')}
+            />
+          )}
+
+          <PostViewer
+            post={selectedPost}
+            isOpen={!!selectedPost}
+            onClose={handleCloseViewer}
+            onPrevious={
+              selectedIndex > 0
+                ? () => {
+                    setSelectedPost(posts[selectedIndex - 1]);
+                    setSelectedIndex(selectedIndex - 1);
+                  }
+                : undefined
+            }
+            onNext={
+              selectedIndex < posts.length - 1
+                ? () => {
+                    setSelectedPost(posts[selectedIndex + 1]);
+                    setSelectedIndex(selectedIndex + 1);
+                  }
+                : undefined
+            }
+            hasPrevious={selectedIndex > 0}
+            hasNext={selectedIndex < posts.length - 1}
+          />
+        </div>
       </div>
     </PageTransition>
   );
