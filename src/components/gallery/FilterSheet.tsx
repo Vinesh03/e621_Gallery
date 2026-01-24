@@ -88,8 +88,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   };
 
   return (
-    93
-    ={open} onOpenChange={handleOpenChange} modal={true}>
+    <Sheet open={open} onOpenChange={handleOpenChange} modal={false}>
       {isOpen === undefined && onOpenChange === undefined && (
         <SheetTrigger asChild>
           <button className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
