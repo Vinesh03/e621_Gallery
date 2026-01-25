@@ -33,45 +33,12 @@ export const nativeVideoPlayer = {
 
   /**
    * Play a video in fullscreen native player
+   * Returns false to always use the in-app HTML5 player (more reliable on Android)
    */
-  playFullscreen: async (url: string, title?: string): Promise<boolean> => {
-    if (!Capacitor.isNativePlatform()) {
-      window.open(url, '_blank');
-      return false;
-    }
-
-    try {
-      await VideoPlayer.stopAllPlayers();
-
-      const initResult = await VideoPlayer.initPlayer({
-        mode: 'fullscreen',
-        url,
-        playerId: FULLSCREEN_PLAYER_ID,
-        title: title || 'Video',
-        smallTitle: title || 'Video',
-        exitOnEnd: true,
-        loopOnEnd: false,
-        pipEnabled: false,
-        bkmodeEnabled: false,
-        showControls: true,
-        displayMode: 'all',
-      });
-
-      if (initResult?.result === false) {
-        throw new Error(initResult?.message || 'initPlayer fallito');
-      }
-
-      const playResult = await VideoPlayer.play({ playerId: FULLSCREEN_PLAYER_ID });
-      if (playResult?.result === false) {
-        throw new Error(playResult?.message || 'play fallito');
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Native video player error:', error);
-      // Non aprire automaticamente il browser: il chiamante gestisce il fallback in-app
-      return false;
-    }
+  playFullscreen: async (_url: string, _title?: string): Promise<boolean> => {
+    // Always return false to use the in-app HTML5 video player
+    // This avoids crashes caused by missing/incompatible native video player plugin
+    return false;
   },
 
   stop: async (): Promise<void> => {

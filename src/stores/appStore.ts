@@ -1,7 +1,13 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
-import { AuthCredentials, RatingFilter, MediaFilter } from '@/types/e621';
+import { persist } from 'zustand/middleware';
+import { RatingFilter, MediaFilter, E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
+
+// Auth Store
+interface Credentials {
+  username: string;
+  apiKey: string;
+}
 
 interface SavedAccount {
   username: string;
@@ -9,734 +15,379 @@ interface SavedAccount {
 }
 
 interface AuthState {
-  credentials: AuthCredentials | null;
+  credentials: Credentials | null;
   isGuest: boolean;
-  isLoading: boolean;
-  error: string | null;
   isFirstLogin: boolean;
   savedAccounts: SavedAccount[];
-  
+  isLoading: boolean;
+  error: string | null;
+  setCredentials: (credentials: Credentials) => void;
+  setGuest: (isGuest: boolean) => void;
+  logout: () => void;
+  setNotFirstLogin: () => void;
   login: (username: string, apiKey: string) => Promise<boolean>;
   loginAsGuest: () => void;
-  logout: () => void;
-  clearError: () => void;
-  setNotFirstLogin: () => void;
   loginWithSavedAccount: (username: string) => Promise<boolean>;
   removeSavedAccount: (username: string) => void;
+  clearError: () => void;
 }
 
-type ThemeMode = 'dark' | 'light' | 'system';
+export const useAuthStore = create<AuthState>()(persist(
+  (set, get) => ({
+    credentials: null,
+    isGuest: false,
+    isFirstLogin: true,
+    savedAccounts: [],
+    isLoading: false,
+    error: null,
+    setCredentials: (credentials) => set({ credentials, isGuest: false, isFirstLogin: true }),
+    setGuest: (isGuest) => set({ isGuest, credentials: null }),
+    logout: () => set({ credentials: null, isGuest: false }),
+    setNotFirstLogin: () => set({ isFirstLogin: false }),
+    clearError: () => set({ error: null }),
+    login: async (username, apiKey) => {
+      set({ isLoading: true, error: null });
+      try {
+        e621Api.setCredentials({ username, apiKey });
+        const isValid = await e621Api.validateCredentials();
+        if (isValid) {
+          const savedAccounts = get().savedAccounts;
+          const exists = savedAccounts.some(a => a.username === username);
+          set({
+            credentials: { username, apiKey },
+            isGuest: false,
+            isFirstLogin: true,
+            savedAccounts: exists ? savedAccounts : [...savedAccounts, { username, apiKey }],
+            isLoading: false,
+          });
+          return true;
+        } else {
+          set({ error: 'Credenziali non valide', isLoading: false });
+          return false;
+        }
+      } catch {
+        set({ error: 'Errore di connessione', isLoading: false });
+        return false;
+      }
+    },
+    loginAsGuest: () => {
+      e621Api.setCredentials(null);
+      set({ isGuest: true, credentials: null });
+    },
+    loginWithSavedAccount: async (username) => {
+      const account = get().savedAccounts.find(a => a.username === username);
+      if (!account) return false;
+      return get().login(account.username, account.apiKey);
+    },
+    removeSavedAccount: (username) => {
+      set((state) => ({
+        savedAccounts: state.savedAccounts.filter(a => a.username !== username),
+      }));
+    },
+  }),
+  { name: 'e6-auth', version: 2 }
+));
 
+// Settings Store
+type ThemeMode = 'dark' | 'light' | 'system';
+type ViewMode = 'gallery' | 'shorts';
 export type DownloadFolder = 'downloads' | 'e621_gallery';
 
 interface SettingsState {
   ratingFilter: RatingFilter;
   mediaFilter: MediaFilter;
-  darkMode: boolean;
-  themeMode: ThemeMode;
-  gridColumns: 2 | 3 | 4;
-  viewMode: 'gallery' | 'shorts';
+  viewMode: ViewMode;
+  storageLimitMB: number;
+  themeColor: string;
   themeHue: number;
   themeSaturation: number;
-  savedMediaFilter: MediaFilter; // Saved filter before switching to shorts
-  hasShownInitialSplash: boolean; // Track if splash has been shown this session
-  storageLimitMB: number; // Storage limit in megabytes (GLOBAL, not per-user)
-  downloadFolder: DownloadFolder; // Download folder setting
-  
+  themeMode: ThemeMode;
+  hasShownInitialSplash: boolean;
+  downloadFolder: DownloadFolder;
+  preloadContent: boolean;
   setRatingFilter: (filter: RatingFilter) => void;
   setMediaFilter: (filter: MediaFilter) => void;
-  setDarkMode: (enabled: boolean) => void;
-  setThemeMode: (mode: ThemeMode) => void;
-  setGridColumns: (columns: 2 | 3 | 4) => void;
-  setViewMode: (mode: 'gallery' | 'shorts') => void;
-  setThemeColor: (hue: number, saturation: number) => void;
-  setSavedMediaFilter: (filter: MediaFilter) => void;
-  setHasShownInitialSplash: (shown: boolean) => void;
+  setViewMode: (mode: ViewMode) => void;
   setStorageLimitMB: (limit: number) => void;
+  setThemeColor: (hue: number, saturation: number) => void;
+  setThemeMode: (mode: ThemeMode) => void;
+  setHasShownInitialSplash: (shown: boolean) => void;
   setDownloadFolder: (folder: DownloadFolder) => void;
+  setPreloadContent: (enabled: boolean) => void;
+  resetViewMode: () => void;
 }
 
-interface CachedPosts {
-  posts: any[];
-  tags: string;
-  ratingFilter: string;
-  mediaFilter: string;
+export const useSettingsStore = create<SettingsState>()(persist(
+  (set) => ({
+    ratingFilter: 's' as RatingFilter,
+    mediaFilter: 'all' as MediaFilter,
+    viewMode: 'gallery' as ViewMode,
+    storageLimitMB: 500,
+    themeColor: 'hsl(221.2, 83.2%, 53.3%)',
+    themeHue: 215,
+    themeSaturation: 85,
+    themeMode: 'dark' as ThemeMode,
+    hasShownInitialSplash: false,
+    downloadFolder: 'downloads' as DownloadFolder,
+    preloadContent: true,
+    setRatingFilter: (filter) => set({ ratingFilter: filter }),
+    setMediaFilter: (filter) => set({ mediaFilter: filter }),
+    setViewMode: (mode) => set({ viewMode: mode }),
+    setStorageLimitMB: (limit) => set({ storageLimitMB: limit }),
+    setThemeColor: (hue, saturation) => set({ themeHue: hue, themeSaturation: saturation }),
+    setThemeMode: (mode) => set({ themeMode: mode }),
+    setHasShownInitialSplash: (shown) => set({ hasShownInitialSplash: shown }),
+    setDownloadFolder: (folder) => set({ downloadFolder: folder }),
+    setPreloadContent: (enabled) => set({ preloadContent: enabled }),
+    resetViewMode: () => set({ viewMode: 'gallery' }),
+  }),
+  { 
+    name: 'e6-settings',
+    version: 10,
+    migrate: (persistedState: any, version: number) => {
+      if (version < 10) {
+        return {
+          ...persistedState,
+          viewMode: 'gallery',
+          preloadContent: persistedState.preloadContent ?? true,
+          themeHue: 215,
+          themeSaturation: 85,
+        };
+      }
+      return persistedState as SettingsState;
+    },
+  }
+));
+
+// Initialize theme on app load
+export function initializeTheme() {
+  const stored = localStorage.getItem('e6-settings');
+  if (stored) {
+    try {
+      const data = JSON.parse(stored);
+      const mode = data?.state?.themeMode || 'dark';
+      const hue = data?.state?.themeHue || 215;
+      const saturation = data?.state?.themeSaturation || 85;
+      
+      document.documentElement.classList.toggle('dark', mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches));
+      document.documentElement.style.setProperty('--primary', `${hue} ${saturation}% 55%`);
+      document.documentElement.style.setProperty('--ring', `${hue} ${saturation}% 55%`);
+      document.documentElement.style.setProperty('--accent', `${(hue + 20) % 360} ${saturation}% 55%`);
+    } catch {}
+  }
+}
+
+// Interaction Store (favorites, etc)
+interface InteractionState {
+  favoriteIds: Set<number>;
+  addFavorite: (id: number) => void;
+  removeFavorite: (id: number) => void;
+  isFavorite: (id: number) => boolean;
+}
+
+export const useInteractionStore = create<InteractionState>()(persist(
+  (set, get) => ({
+    favoriteIds: new Set(),
+    addFavorite: (id) => set((state) => ({ favoriteIds: new Set([...state.favoriteIds, id]) })),
+    removeFavorite: (id) => set((state) => {
+      const newSet = new Set(state.favoriteIds);
+      newSet.delete(id);
+      return { favoriteIds: newSet };
+    }),
+    isFavorite: (id) => get().favoriteIds.has(id),
+  }),
+  {
+    name: 'e6-interactions',
+    version: 1,
+    storage: {
+      getItem: (name) => {
+        const str = localStorage.getItem(name);
+        if (!str) return null;
+        const data = JSON.parse(str);
+        return {
+          state: {
+            ...data.state,
+            favoriteIds: new Set(data.state.favoriteIds || []),
+          },
+        };
+      },
+      setItem: (name, value) => {
+        const data = {
+          state: {
+            ...value.state,
+            favoriteIds: Array.from(value.state.favoriteIds),
+          },
+        };
+        localStorage.setItem(name, JSON.stringify(data));
+      },
+      removeItem: (name) => localStorage.removeItem(name),
+    },
+  }
+));
+
+// User Interactions Store (votes, favorites per post)
+interface UserInteractionsState {
+  votes: Record<number, 1 | -1 | 0>;
+  favorites: Record<number, boolean>;
+  getUserVote: (postId: number) => 1 | -1 | 0;
+  setUserVote: (postId: number, vote: 1 | -1 | 0) => void;
+  isUserFavorite: (postId: number) => boolean;
+  setUserFavorite: (postId: number, isFav: boolean) => void;
+}
+
+export const useUserInteractionsStore = create<UserInteractionsState>()(persist(
+  (set, get) => ({
+    votes: {},
+    favorites: {},
+    getUserVote: (postId) => get().votes[postId] || 0,
+    setUserVote: (postId, vote) => set((state) => ({ votes: { ...state.votes, [postId]: vote } })),
+    isUserFavorite: (postId) => get().favorites[postId] || false,
+    setUserFavorite: (postId, isFav) => set((state) => ({ favorites: { ...state.favorites, [postId]: isFav } })),
+  }),
+  { name: 'e6-user-interactions', version: 1 }
+));
+
+interface CacheEntry {
+  posts: E621Post[];
   timestamp: number;
+  rating: RatingFilter;
+  mediaFilter: MediaFilter;
 }
 
 export interface SavedSearch {
   id: string;
-  tags: string;
   name: string;
+  tags: string;
   createdAt: number;
 }
 
 interface SearchState {
   currentTags: string;
-  searchHistory: string[];
-  cachedPosts: CachedPosts | null;
+  cache: Map<string, CacheEntry>;
   savedSearches: SavedSearch[];
-  
+  searchHistory: string[];
   setCurrentTags: (tags: string) => void;
-  addToHistory: (tags: string) => void;
-  clearHistory: () => void;
-  setCachedPosts: (posts: any[], tags: string, ratingFilter: string, mediaFilter: string) => void;
-  getCachedPosts: (tags: string, ratingFilter: string, mediaFilter: string) => any[] | null;
+  getCachedPosts: (tags: string, rating: RatingFilter, mediaFilter: MediaFilter) => E621Post[] | null;
+  setCachedPosts: (posts: E621Post[], tags: string, rating: RatingFilter, mediaFilter: MediaFilter) => void;
   clearCache: () => void;
   addSavedSearch: (tags: string, name?: string) => void;
   removeSavedSearch: (id: string) => void;
   renameSavedSearch: (id: string, newName: string) => void;
   updateSavedSearchTags: (id: string, newTags: string) => void;
+  addToHistory: (tags: string) => void;
+  clearHistory: () => void;
 }
 
-// Store for tracking user's interactions with posts (votes, favorites)
-interface UserInteractionsState {
-  // postId -> vote (1 = liked, -1 = disliked, 0 = no vote)
-  userVotes: Record<number, 1 | -1 | 0>;
-  // Set of post IDs that user has favorited (tracked locally for UI updates)
-  userFavorites: Set<number>;
-  
-  setUserVote: (postId: number, vote: 1 | -1 | 0) => void;
-  getUserVote: (postId: number) => 1 | -1 | 0;
-  setUserFavorite: (postId: number, isFavorite: boolean) => void;
-  isUserFavorite: (postId: number) => boolean;
-  clearInteractions: () => void;
-}
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_ENTRIES = 20;
 
-// Helper function to get current username from auth store
-const getCurrentUsername = (): string => {
-  try {
-    const authData = localStorage.getItem('e6-auth');
-    if (authData) {
-      const parsed = JSON.parse(authData);
-      return parsed.state?.credentials?.username || 'guest';
-    }
-  } catch (e) {
-    // Ignore
-  }
-  return 'guest';
-};
+const MAX_HISTORY = 10;
 
-// Create user-specific storage for settings
-const createUserSettingsStorage = (): StateStorage => ({
-  getItem: (name: string): string | null => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    return localStorage.getItem(key);
-  },
-  setItem: (name: string, value: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.setItem(key, value);
-  },
-  removeItem: (name: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.removeItem(key);
-  },
-});
-
-// Create user-specific storage for search data
-const createUserSearchStorage = (): StateStorage => ({
-  getItem: (name: string): string | null => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    return localStorage.getItem(key);
-  },
-  setItem: (name: string, value: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.setItem(key, value);
-  },
-  removeItem: (name: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.removeItem(key);
-  },
-});
-
-// Create user-specific storage for interactions
-const createUserInteractionsStorage = (): StateStorage => ({
-  getItem: (name: string): string | null => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    return localStorage.getItem(key);
-  },
-  setItem: (name: string, value: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.setItem(key, value);
-  },
-  removeItem: (name: string): void => {
-    const username = getCurrentUsername();
-    const key = `${name}-${username}`;
-    localStorage.removeItem(key);
-  },
-});
-
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
-      credentials: null,
-      isGuest: false,
-      isLoading: false,
-      error: null,
-      isFirstLogin: true,
-      savedAccounts: [],
-
-      login: async (username: string, apiKey: string) => {
-        set({ isLoading: true, error: null });
-        
-        const credentials = { username, apiKey };
-        e621Api.setCredentials(credentials);
-        
-        const isValid = await e621Api.validateCredentials();
-        
-        if (isValid) {
-          // Save account to savedAccounts
-          const existingAccounts = get().savedAccounts;
-          const filteredAccounts = existingAccounts.filter(a => a.username !== username);
-          const newSavedAccounts = [{ username, apiKey }, ...filteredAccounts];
-          
-          set((state) => ({ 
-            credentials, 
-            isGuest: false, 
-            isLoading: false,
-            isFirstLogin: state.isFirstLogin,
-            savedAccounts: newSavedAccounts,
-          }));
-          
-          // Reload user-specific stores after login
-          reloadUserStores();
-          
-          return true;
-        } else {
-          e621Api.setCredentials(null);
-          set({ 
-            credentials: null, 
-            isLoading: false, 
-            error: 'Invalid username or API key' 
-          });
-          return false;
-        }
-      },
-
-      loginWithSavedAccount: async (username: string) => {
-        const savedAccount = get().savedAccounts.find(a => a.username === username);
-        if (!savedAccount) {
-          set({ error: 'Account non trovato' });
-          return false;
-        }
-        
-        set({ isLoading: true, error: null });
-        
-        const credentials = { username: savedAccount.username, apiKey: savedAccount.apiKey };
-        e621Api.setCredentials(credentials);
-        
-        const isValid = await e621Api.validateCredentials();
-        
-        if (isValid) {
-          set({ 
-            credentials, 
-            isGuest: false, 
-            isLoading: false,
-          });
-          
-          // Reload user-specific stores after login
-          reloadUserStores();
-          
-          return true;
-        } else {
-          e621Api.setCredentials(null);
-          set({ 
-            credentials: null, 
-            isLoading: false, 
-            error: 'Credenziali non più valide' 
-          });
-          return false;
-        }
-      },
-
-      removeSavedAccount: (username: string) => {
-        set((state) => ({
-          savedAccounts: state.savedAccounts.filter(a => a.username !== username),
-        }));
-      },
-
-      loginAsGuest: () => {
-        e621Api.setCredentials(null);
-        set({ credentials: null, isGuest: true, error: null });
-        // Reload user-specific stores for guest
-        reloadUserStores();
-      },
-
-      logout: () => {
-        e621Api.setCredentials(null);
-        set({ credentials: null, isGuest: false, error: null, isFirstLogin: true });
-      },
-
-      clearError: () => set({ error: null }),
+export const useSearchStore = create<SearchState>()(persist(
+  (set, get) => ({
+    currentTags: '',
+    cache: new Map(),
+    savedSearches: [],
+    searchHistory: [],
+    setCurrentTags: (tags) => set({ currentTags: tags }),
+    getCachedPosts: (tags, rating, mediaFilter) => {
+      const cacheKey = `${tags}_${rating}_${mediaFilter}`;
+      const entry = get().cache.get(cacheKey);
+      if (!entry) return null;
       
-      setNotFirstLogin: () => set({ isFirstLogin: false }),
-    }),
-    {
-      name: 'e6-auth',
-      partialize: (state) => ({ 
-        credentials: state.credentials,
-        isGuest: state.isGuest,
-        isFirstLogin: state.isFirstLogin,
-        savedAccounts: state.savedAccounts,
-      }),
-      onRehydrateStorage: () => (state) => {
-        if (state?.credentials) {
-          e621Api.setCredentials(state.credentials);
-        }
-      },
-    }
-  )
-);
-
-const applyThemeMode = (mode: ThemeMode) => {
-  if (mode === 'system') {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    if (prefersDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  } else if (mode === 'dark') {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-  }
-};
-
-// Setup listener for system theme changes
-let systemThemeListener: ((e: MediaQueryListEvent) => void) | null = null;
-
-const setupSystemThemeListener = (mode: ThemeMode) => {
-  // Remove existing listener
-  if (systemThemeListener) {
-    window.matchMedia('(prefers-color-scheme: dark)').removeEventListener('change', systemThemeListener);
-    systemThemeListener = null;
-  }
-  
-  // Only add listener when in system mode
-  if (mode === 'system') {
-    systemThemeListener = (e: MediaQueryListEvent) => {
-      if (e.matches) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
+      const now = Date.now();
+      if (now - entry.timestamp > CACHE_DURATION) {
+        const newCache = new Map(get().cache);
+        newCache.delete(cacheKey);
+        set({ cache: newCache });
+        return null;
       }
-    };
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', systemThemeListener);
-  }
-};
-
-// Initialize theme on app start (before store hydration)
-export const initializeTheme = () => {
-  // Get stored theme mode from localStorage for current user
-  const username = getCurrentUsername();
-  const storedSettings = localStorage.getItem(`e6-settings-${username}`);
-  let themeMode: ThemeMode = 'system'; // Default to system
-  
-  if (storedSettings) {
-    try {
-      const parsed = JSON.parse(storedSettings);
-      themeMode = parsed.state?.themeMode || 'system';
-    } catch (e) {
-      // Use default
-    }
-  }
-  
-  applyThemeMode(themeMode);
-  setupSystemThemeListener(themeMode);
-};
-
-// Global storage limit store (not per-user)
-interface GlobalSettingsState {
-  storageLimitMB: number;
-  setStorageLimitMB: (limit: number) => void;
-}
-
-export const useGlobalSettingsStore = create<GlobalSettingsState>()(
-  persist(
-    (set) => ({
-      storageLimitMB: 500, // Default 500MB
-      setStorageLimitMB: (limit) => set({ storageLimitMB: limit }),
-    }),
-    {
-      name: 'e6-global-settings',
-    }
-  )
-);
-
-export const useSettingsStore = create<SettingsState>()(
-  persist(
-    (set) => ({
-      ratingFilter: 'sqe',
-      mediaFilter: 'all',
-      darkMode: true,
-      themeMode: 'system' as ThemeMode, // Default to system theme
-      gridColumns: 2,
-      viewMode: 'gallery',
-      themeHue: 215,
-      themeSaturation: 85,
-      savedMediaFilter: 'all',
-      hasShownInitialSplash: false,
-      storageLimitMB: 500, // Kept for compatibility but use useGlobalSettingsStore
-      downloadFolder: 'downloads' as DownloadFolder, // Default to downloads folder
-
-      setRatingFilter: (filter) => set({ ratingFilter: filter }),
-      setMediaFilter: (filter) => set({ mediaFilter: filter }),
-      setDarkMode: (enabled) => set({ darkMode: enabled }),
-      setThemeMode: (mode) => {
-        applyThemeMode(mode);
-        setupSystemThemeListener(mode);
-        set({ themeMode: mode, darkMode: mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) });
-      },
-      setGridColumns: (columns) => set({ gridColumns: columns }),
-      setViewMode: (mode) => set({ viewMode: mode }),
-      setThemeColor: (hue, saturation) => set({ themeHue: hue, themeSaturation: saturation }),
-      setSavedMediaFilter: (filter) => set({ savedMediaFilter: filter }),
-      setHasShownInitialSplash: (shown) => set({ hasShownInitialSplash: shown }),
-      setStorageLimitMB: (limit) => {
-        // Also update global settings for cache limit
-        useGlobalSettingsStore.getState().setStorageLimitMB(limit);
-        set({ storageLimitMB: limit });
-      },
-      setDownloadFolder: (folder) => set({ downloadFolder: folder }),
-    }),
-    {
-      name: 'e6-settings',
-      storage: createJSONStorage(() => createUserSettingsStorage()),
-      version: 7,
-      migrate: (persistedState: any, version: number) => {
-        if (version < 7 && persistedState && typeof persistedState === 'object') {
-          return {
-            ...persistedState,
-            ratingFilter: persistedState.ratingFilter ?? 'sqe',
-            themeMode: persistedState.themeMode ?? (persistedState.darkMode ? 'dark' : 'system'),
-            hasShownInitialSplash: false,
-            storageLimitMB: persistedState.storageLimitMB ?? 500,
-            downloadFolder: persistedState.downloadFolder ?? 'downloads',
-          };
-        }
-        return persistedState;
-      },
-      onRehydrateStorage: () => (state) => {
-        // Reset splash flag on app start
-        if (state) {
-          state.hasShownInitialSplash = false;
-        }
-        // Apply saved theme on rehydration
-        if (state?.themeHue !== undefined && state?.themeSaturation !== undefined) {
-          document.documentElement.style.setProperty('--primary', `${state.themeHue} ${state.themeSaturation}% 55%`);
-          document.documentElement.style.setProperty('--ring', `${state.themeHue} ${state.themeSaturation}% 55%`);
-          document.documentElement.style.setProperty('--accent', `${(state.themeHue + 20) % 360} ${state.themeSaturation}% 55%`);
-        }
-        // Apply theme mode
-        if (state?.themeMode) {
-          applyThemeMode(state.themeMode);
-          setupSystemThemeListener(state.themeMode);
-        } else if (state?.darkMode) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      },
-    }
-  )
-);
-
-const CACHE_MAX_AGE = 30 * 60 * 1000; // 30 minutes
-
-export const useSearchStore = create<SearchState>()(
-  persist(
-    (set, get) => ({
-      currentTags: '',
-      searchHistory: [],
-      cachedPosts: null,
-      savedSearches: [],
-
-      setCurrentTags: (tags) => set({ currentTags: tags }),
       
-      addToHistory: (tags) => set((state) => {
-        if (!tags.trim()) return state;
-        const filtered = state.searchHistory.filter(t => t !== tags);
-        return { 
-          searchHistory: [tags, ...filtered].slice(0, 20) 
-        };
-      }),
+      return entry.posts;
+    },
+    setCachedPosts: (posts, tags, rating, mediaFilter) => {
+      const cacheKey = `${tags}_${rating}_${mediaFilter}`;
+      const newCache = new Map(get().cache);
       
-      clearHistory: () => set({ searchHistory: [] }),
-
-      setCachedPosts: (posts, tags, ratingFilter, mediaFilter) => set({
-        cachedPosts: {
-          posts,
-          tags,
-          ratingFilter,
-          mediaFilter,
-          timestamp: Date.now(),
-        }
-      }),
-
-      getCachedPosts: (tags, ratingFilter, mediaFilter) => {
-        const cached = get().cachedPosts;
-        if (!cached) return null;
-        
-        // Check if cache matches current filters
-        if (cached.tags !== tags || cached.ratingFilter !== ratingFilter || cached.mediaFilter !== mediaFilter) {
-          return null;
-        }
-        
-        // Check if cache is still valid (30 min)
-        if (Date.now() - cached.timestamp > CACHE_MAX_AGE) {
-          return null;
-        }
-        
-        return cached.posts;
-      },
-
-      clearCache: () => set({ cachedPosts: null }),
-
-      addSavedSearch: (tags, name) => set((state) => {
-        // Check if already exists
-        if (state.savedSearches.some(s => s.tags === tags)) {
-          return state;
-        }
-        const newSearch: SavedSearch = {
-          id: Date.now().toString(),
-          tags,
-          name: name || '',
-          createdAt: Date.now(),
-        };
-        return {
-          savedSearches: [newSearch, ...state.savedSearches].slice(0, 20)
-        };
-      }),
-
-      removeSavedSearch: (id) => set((state) => ({
-        savedSearches: state.savedSearches.filter(s => s.id !== id)
-      })),
-
-      renameSavedSearch: (id, newName) => set((state) => ({
-        savedSearches: state.savedSearches.map(s => 
+      // Limit cache size
+      if (newCache.size >= MAX_CACHE_ENTRIES) {
+        const firstKey = newCache.keys().next().value;
+        newCache.delete(firstKey);
+      }
+      
+      newCache.set(cacheKey, {
+        posts,
+        timestamp: Date.now(),
+        rating,
+        mediaFilter,
+      });
+      
+      set({ cache: newCache });
+    },
+    clearCache: () => set({ cache: new Map() }),
+    addSavedSearch: (tags, name) => {
+      const newSearch: SavedSearch = {
+        id: Date.now().toString(),
+        name: name || '',
+        tags,
+        createdAt: Date.now(),
+      };
+      set((state) => ({
+        savedSearches: [newSearch, ...state.savedSearches],
+      }));
+    },
+    removeSavedSearch: (id) => {
+      set((state) => ({
+        savedSearches: state.savedSearches.filter((s) => s.id !== id),
+      }));
+    },
+    renameSavedSearch: (id, newName) => {
+      set((state) => ({
+        savedSearches: state.savedSearches.map((s) =>
           s.id === id ? { ...s, name: newName } : s
-        )
-      })),
-
-      updateSavedSearchTags: (id, newTags) => set((state) => ({
-        savedSearches: state.savedSearches.map(s => 
+        ),
+      }));
+    },
+    updateSavedSearchTags: (id, newTags) => {
+      set((state) => ({
+        savedSearches: state.savedSearches.map((s) =>
           s.id === id ? { ...s, tags: newTags } : s
-        )
-      })),
-    }),
-    {
-      name: 'e6-search',
-      storage: createJSONStorage(() => createUserSearchStorage()),
-      partialize: (state) => ({
-        // Don't persist currentTags - always start with empty search
-        searchHistory: state.searchHistory,
-        cachedPosts: state.cachedPosts,
-        savedSearches: state.savedSearches,
-      }),
-      onRehydrateStorage: () => (state) => {
-        // Always reset currentTags on app start
-        if (state) {
-          state.currentTags = '';
-        }
+        ),
+      }));
+    },
+    addToHistory: (tags) => {
+      set((state) => {
+        const filtered = state.searchHistory.filter(t => t !== tags);
+        return { searchHistory: [tags, ...filtered].slice(0, MAX_HISTORY) };
+      });
+    },
+    clearHistory: () => set({ searchHistory: [] }),
+  }),
+  {
+    name: 'e6-search',
+    version: 2,
+    storage: {
+      getItem: (name) => {
+        const str = localStorage.getItem(name);
+        if (!str) return null;
+        const data = JSON.parse(str);
+        return {
+          state: {
+            ...data.state,
+            cache: new Map(data.state.cache || []),
+          },
+        };
       },
-    }
-  )
-);
-
-// User interactions store - persisted to remember votes across sessions (per-user)
-export const useUserInteractionsStore = create<UserInteractionsState>()(
-  persist(
-    (set, get) => ({
-      userVotes: {},
-      userFavorites: new Set<number>(),
-
-      setUserVote: (postId, vote) => set((state) => ({
-        userVotes: { ...state.userVotes, [postId]: vote }
-      })),
-
-      getUserVote: (postId) => get().userVotes[postId] || 0,
-
-      setUserFavorite: (postId, isFavorite) => set((state) => {
-        const newFavorites = new Set(state.userFavorites);
-        if (isFavorite) {
-          newFavorites.add(postId);
-        } else {
-          newFavorites.delete(postId);
-        }
-        return { userFavorites: newFavorites };
-      }),
-
-      isUserFavorite: (postId) => get().userFavorites.has(postId),
-
-      clearInteractions: () => set({ userVotes: {}, userFavorites: new Set<number>() }),
-    }),
-    {
-      name: 'e6-interactions',
-      storage: {
-        getItem: (name) => {
-          const username = getCurrentUsername();
-          const key = `${name}-${username}`;
-          const str = localStorage.getItem(key);
-          if (!str) return null;
-          const parsed = JSON.parse(str);
-          // Convert userFavorites array back to Set
-          if (parsed.state?.userFavorites) {
-            parsed.state.userFavorites = new Set(parsed.state.userFavorites);
-          }
-          return parsed;
-        },
-        setItem: (name, value) => {
-          const username = getCurrentUsername();
-          const key = `${name}-${username}`;
-          // Convert Set to array for JSON serialization
-          const toStore = {
-            ...value,
-            state: {
-              ...value.state,
-              userFavorites: Array.from(value.state.userFavorites || []),
-            },
-          };
-          localStorage.setItem(key, JSON.stringify(toStore));
-        },
-        removeItem: (name) => {
-          const username = getCurrentUsername();
-          const key = `${name}-${username}`;
-          localStorage.removeItem(key);
-        },
+      setItem: (name, value) => {
+        const data = {
+          state: {
+            ...value.state,
+            cache: Array.from(value.state.cache.entries()),
+          },
+        };
+        localStorage.setItem(name, JSON.stringify(data));
       },
-    }
-  )
-);
-
-// Function to reload user-specific stores after login/logout
-const reloadUserStores = () => {
-  // Force rehydration of user-specific stores
-  // This is a workaround since zustand persist doesn't support dynamic keys natively
-  const settingsState = useSettingsStore.getState();
-  const searchState = useSearchStore.getState();
-  const interactionsState = useUserInteractionsStore.getState();
-  
-  // Trigger a rehydration by reading from new user's storage
-  const username = getCurrentUsername();
-  
-  // Settings
-  const settingsData = localStorage.getItem(`e6-settings-${username}`);
-  if (settingsData) {
-    try {
-      const parsed = JSON.parse(settingsData);
-      if (parsed.state) {
-        useSettingsStore.setState({
-          ...parsed.state,
-          hasShownInitialSplash: false,
-        });
-        // Apply theme
-        if (parsed.state.themeHue !== undefined && parsed.state.themeSaturation !== undefined) {
-          document.documentElement.style.setProperty('--primary', `${parsed.state.themeHue} ${parsed.state.themeSaturation}% 55%`);
-          document.documentElement.style.setProperty('--ring', `${parsed.state.themeHue} ${parsed.state.themeSaturation}% 55%`);
-          document.documentElement.style.setProperty('--accent', `${(parsed.state.themeHue + 20) % 360} ${parsed.state.themeSaturation}% 55%`);
-        }
-        if (parsed.state.themeMode) {
-          applyThemeMode(parsed.state.themeMode);
-          setupSystemThemeListener(parsed.state.themeMode);
-        }
-      }
-    } catch (e) {
-      // Reset to defaults for new user
-      useSettingsStore.setState({
-        ratingFilter: 'sqe',
-        mediaFilter: 'all',
-        darkMode: true,
-        themeMode: 'system',
-        gridColumns: 2,
-        viewMode: 'gallery',
-        themeHue: 215,
-        themeSaturation: 85,
-        savedMediaFilter: 'all',
-        hasShownInitialSplash: false,
-        storageLimitMB: 500,
-        downloadFolder: 'downloads',
-      });
-    }
-  } else {
-    // Reset to defaults for new user
-    useSettingsStore.setState({
-      ratingFilter: 'sqe',
-      mediaFilter: 'all',
-      darkMode: true,
-      themeMode: 'system',
-      gridColumns: 2,
-      viewMode: 'gallery',
-      themeHue: 215,
-      themeSaturation: 85,
-      savedMediaFilter: 'all',
-      hasShownInitialSplash: false,
-      storageLimitMB: 500,
-      downloadFolder: 'downloads',
-    });
+      removeItem: (name) => localStorage.removeItem(name),
+    },
   }
-  
-  // Search
-  const searchData = localStorage.getItem(`e6-search-${username}`);
-  if (searchData) {
-    try {
-      const parsed = JSON.parse(searchData);
-      if (parsed.state) {
-        useSearchStore.setState(parsed.state);
-      }
-    } catch (e) {
-      // Reset to defaults
-      useSearchStore.setState({
-        currentTags: '',
-        searchHistory: [],
-        cachedPosts: null,
-        savedSearches: [],
-      });
-    }
-  } else {
-    // Reset to defaults for new user
-    useSearchStore.setState({
-      currentTags: '',
-      searchHistory: [],
-      cachedPosts: null,
-      savedSearches: [],
-    });
-  }
-  
-  // Interactions
-  const interactionsData = localStorage.getItem(`e6-interactions-${username}`);
-  if (interactionsData) {
-    try {
-      const parsed = JSON.parse(interactionsData);
-      if (parsed.state) {
-        useUserInteractionsStore.setState({
-          ...parsed.state,
-          userFavorites: new Set(parsed.state.userFavorites || []),
-        });
-      }
-    } catch (e) {
-      // Reset to defaults
-      useUserInteractionsStore.setState({
-        userVotes: {},
-        userFavorites: new Set<number>(),
-      });
-    }
-  } else {
-    // Reset to defaults for new user
-    useUserInteractionsStore.setState({
-      userVotes: {},
-      userFavorites: new Set<number>(),
-    });
-  }
-  
-  // Re-initialize theme for new user
-  initializeTheme();
-};
+));

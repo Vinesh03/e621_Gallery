@@ -1,13 +1,42 @@
 import { E621Post, E621PostsResponse, E621User, SearchParams, AuthCredentials, E621Tag, MediaFilter, E621Comment } from '@/types/e621';
+import { toast } from 'sonner';
 
 const BASE_URL = 'https://e621.net';
 const USER_AGENT = 'E6Gallery/1.0.0 (Lovable App)';
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // ms
+
+/**
+ * Custom error class for API errors
+ */
+class ApiError extends Error {
+  constructor(
+    message: string,
+    public status?: number,
+    public endpoint?: string,
+    public isNetworkError: boolean = false
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+/**
+ * Sleep utility for retry delays
+ */
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 class E621Api {
   private credentials: AuthCredentials | null = null;
+  private requestCache = new Map<string, { data: any; timestamp: number }>();
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   setCredentials(credentials: AuthCredentials | null) {
     this.credentials = credentials;
+    // Clear cache when credentials change
+    if (credentials) {
+      this.clearCache();
+    }
   }
 
   getCredentials(): AuthCredentials | null {
@@ -16,6 +45,10 @@ class E621Api {
 
   isAuthenticated(): boolean {
     return this.credentials !== null;
+  }
+
+  clearCache() {
+    this.requestCache.clear();
   }
 
   private getHeaders(): HeadersInit {
@@ -34,7 +67,7 @@ class E621Api {
   private buildUrl(endpoint: string, params?: Record<string, string | number | undefined>): string {
     const url = new URL(endpoint, BASE_URL);
     
-    // Add _client parameter for user agent (since we can't set headers in some cases)
+    // Add _client parameter for user agent
     url.searchParams.set('_client', USER_AGENT);
     
     if (params) {
@@ -46,6 +79,165 @@ class E621Api {
     }
 
     return url.toString();
+  }
+
+  /**
+   * Enhanced fetch with retry logic and better error handling
+   */
+  private async fetchWithRetry(
+    url: string,
+    options: RequestInit = {},
+    retries = MAX_RETRIES,
+    useCache = false
+  ): Promise<Response> {
+    // Check cache for GET requests
+    if (useCache && options.method === 'GET') {
+      const cached = this.requestCache.get(url);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
+        console.log('📦 Using cached response for:', url);
+        return new Response(JSON.stringify(cached.data), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        console.log(`🌐 Fetching (attempt ${attempt + 1}/${retries + 1}):`, url);
+        
+        const response = await fetch(url, {
+          ...options,
+          headers: {
+            ...this.getHeaders(),
+            ...options.headers,
+          },
+          signal: options.signal || AbortSignal.timeout(30000), // 30s timeout
+        });
+
+        // Handle rate limiting
+        if (response.status === 429) {
+          const retryAfter = parseInt(response.headers.get('Retry-After') || '60', 10);
+          console.warn(`⏰ Rate limited. Retry after ${retryAfter}s`);
+          
+          if (attempt < retries) {
+            await sleep(retryAfter * 1000);
+            continue;
+          }
+          
+          throw new ApiError(
+            'Troppe richieste. Riprova tra qualche minuto.',
+            429,
+            url
+          );
+        }
+
+        // Handle authentication errors
+        if (response.status === 401 || response.status === 403) {
+          throw new ApiError(
+            'Autenticazione fallita. Verifica le tue credenziali.',
+            response.status,
+            url
+          );
+        }
+
+        // Handle not found
+        if (response.status === 404) {
+          throw new ApiError(
+            'Risorsa non trovata.',
+            404,
+            url
+          );
+        }
+
+        // Handle server errors
+        if (response.status >= 500) {
+          const errorMsg = `Errore del server (${response.status})`;
+          
+          if (attempt < retries) {
+            console.warn(`${errorMsg}. Retrying...`);
+            await sleep(RETRY_DELAY * Math.pow(2, attempt));
+            continue;
+          }
+          
+          throw new ApiError(errorMsg, response.status, url);
+        }
+
+        // Handle other non-OK responses
+        if (!response.ok) {
+          throw new ApiError(
+            `Errore HTTP: ${response.status} ${response.statusText}`,
+            response.status,
+            url
+          );
+        }
+
+        // Cache successful GET responses
+        if (useCache && options.method === 'GET') {
+          const data = await response.clone().json();
+          this.requestCache.set(url, { data, timestamp: Date.now() });
+        }
+
+        console.log('✅ Fetch successful:', url);
+        return response;
+
+      } catch (error: any) {
+        lastError = error;
+
+        // Handle network errors
+        if (error.name === 'TypeError' || error.message.includes('fetch')) {
+          console.error('🌐 Network error:', error.message);
+          
+          if (attempt < retries) {
+            console.log(`Retrying after network error... (${attempt + 1}/${retries})`);
+            await sleep(RETRY_DELAY * Math.pow(2, attempt));
+            continue;
+          }
+          
+          throw new ApiError(
+            'Errore di connessione. Verifica la tua connessione internet.',
+            undefined,
+            url,
+            true
+          );
+        }
+
+        // Handle timeout
+        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+          console.error('⏱️ Request timeout:', url);
+          
+          if (attempt < retries) {
+            console.log('Retrying after timeout...');
+            await sleep(RETRY_DELAY * Math.pow(2, attempt));
+            continue;
+          }
+          
+          throw new ApiError(
+            'Richiesta scaduta. Riprova.',
+            undefined,
+            url,
+            true
+          );
+        }
+
+        // Re-throw ApiErrors immediately
+        if (error instanceof ApiError) {
+          throw error;
+        }
+
+        // Unknown error - retry if possible
+        if (attempt < retries) {
+          console.error('Unknown error, retrying:', error);
+          await sleep(RETRY_DELAY * Math.pow(2, attempt));
+          continue;
+        }
+      }
+    }
+
+    // All retries exhausted
+    throw lastError || new ApiError('Richiesta fallita dopo diversi tentativi', undefined, url);
   }
 
   private buildRatingQuery(rating?: string): string {
@@ -84,20 +276,12 @@ class E621Api {
     });
 
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getHeaders(),
-      });
-
-      if (!response.ok) {
-        return [];
-      }
-
+      const response = await this.fetchWithRetry(url, { method: 'GET' }, 1, true); // Use cache, fewer retries
       const data = await response.json();
       return Array.isArray(data) ? data : [];
     } catch (error) {
       console.error('Tag search error:', error);
-      return [];
+      return []; // Fail silently for autocomplete
     }
   }
 
@@ -116,19 +300,18 @@ class E621Api {
     });
 
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getHeaders(),
-      });
-
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-
+      const response = await this.fetchWithRetry(url, { method: 'GET' }, MAX_RETRIES, true);
       const data: E621PostsResponse = await response.json();
       return data.posts;
     } catch (error) {
       console.error('E621 API Error:', error);
+      
+      if (error instanceof ApiError) {
+        toast.error(error.message);
+      } else {
+        toast.error('Impossibile caricare i post');
+      }
+      
       throw error;
     }
   }
@@ -136,15 +319,7 @@ class E621Api {
   async getPost(id: number): Promise<E621Post> {
     const url = this.buildUrl(`/posts/${id}.json`);
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
-    }
-
+    const response = await this.fetchWithRetry(url, { method: 'GET' }, MAX_RETRIES, true);
     const data = await response.json();
     return data.post;
   }
@@ -155,16 +330,7 @@ class E621Api {
     }
 
     const url = this.buildUrl(`/users/${this.credentials.username}.json`);
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
-    }
-
+    const response = await this.fetchWithRetry(url, { method: 'GET' });
     return response.json();
   }
 
@@ -184,15 +350,7 @@ class E621Api {
       page: page !== undefined ? String(page) : undefined,
     });
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
-    }
-
+    const response = await this.fetchWithRetry(url, { method: 'GET' }, MAX_RETRIES, true);
     const data: E621PostsResponse = await response.json();
     return data.posts;
   }
@@ -204,18 +362,16 @@ class E621Api {
 
     const url = this.buildUrl('/favorites.json');
 
-    const response = await fetch(url, {
+    await this.fetchWithRetry(url, {
       method: 'POST',
       headers: {
-        ...this.getHeaders(),
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: `post_id=${postId}`,
     });
 
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
-    }
+    // Clear favorites cache
+    this.clearCache();
   }
 
   async removeFavorite(postId: number): Promise<void> {
@@ -223,17 +379,14 @@ class E621Api {
       throw new Error('Not authenticated');
     }
 
-    // Note: DELETE is not CORS-safe, so this might need to be handled differently
     const url = this.buildUrl(`/favorites/${postId}.json`);
 
-    const response = await fetch(url, {
+    await this.fetchWithRetry(url, {
       method: 'DELETE',
-      headers: this.getHeaders(),
     });
 
-    if (!response.ok && response.status !== 204) {
-      throw new Error(`API Error: ${response.status}`);
-    }
+    // Clear favorites cache
+    this.clearCache();
   }
 
   async votePost(postId: number, score: 1 | -1, unvote: boolean = false): Promise<{ score: number; up: number; down: number; our_score: number }> {
@@ -243,20 +396,13 @@ class E621Api {
 
     const url = this.buildUrl(`/posts/${postId}/votes.json`);
 
-    // e621 API: no_unvote=false means it will toggle (remove) if same vote is sent twice
-    // To explicitly remove a vote, send the same vote with no_unvote=false
-    const response = await fetch(url, {
+    const response = await this.fetchWithRetry(url, {
       method: 'POST',
       headers: {
-        ...this.getHeaders(),
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: `score=${score}&no_unvote=false`,
     });
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
-    }
 
     return response.json();
   }
@@ -267,15 +413,7 @@ class E621Api {
       limit: 50,
     });
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: this.getHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status}`);
-    }
-
+    const response = await this.fetchWithRetry(url, { method: 'GET' }, 2, true);
     return response.json();
   }
 
@@ -283,37 +421,68 @@ class E621Api {
     return post.file.url;
   }
 
-  /**
-   * Best URL for rendering a preview (images) in the UI.
-   * For video posts this will typically be a JPG preview.
-   */
   getPreviewUrl(post: E621Post): string | null {
     return post.preview.url || post.sample.url || post.file.url;
   }
 
-  /**
-   * Best URL for rendering the main media (images).
-   * Note: for video posts, `sample.url` is a poster image, not the video.
-   */
   getSampleUrl(post: E621Post): string | null {
     return post.sample.url || post.file.url;
   }
 
   /**
-   * Best URL for actually playing a video (prefer MP4 transcodes for compatibility).
+   * Get playback URL for video posts.
+   * CRITICAL STRATEGY: Prefer original MP4 files for maximum compatibility.
    */
   getVideoPlaybackUrl(post: E621Post): string | null {
     const ext = (post.file.ext || '').toLowerCase();
-    if (ext !== 'webm' && ext !== 'mp4') return null;
+    
+    if (ext !== 'webm' && ext !== 'mp4') {
+      console.log(`[Video] Post ${post.id}: Not a video (ext: ${ext})`);
+      return null;
+    }
 
-    // If e621 provides MP4 transcodes (most compatible), prefer them.
+    // If original is MP4, use it directly
+    if (ext === 'mp4' && post.file.url) {
+      console.log(`[Video] Post ${post.id}: Using original MP4 file`);
+      return post.file.url;
+    }
+
+    // Search for MP4 alternatives
+    console.log(`[Video] Post ${post.id}: Original is WebM, searching for MP4 alternatives...`);
+    
     const alternates = post.sample.alternates;
-    const mp4_720 = alternates?.samples?.['720p']?.url;
-    const mp4_480 = alternates?.samples?.['480p']?.url;
-    const mp4_variant = alternates?.variants?.mp4?.url;
+    
+    if (!alternates) {
+      console.warn(`[Video] Post ${post.id}: No alternates available for WebM file`);
+      return null;
+    }
 
-    return mp4_720 || mp4_480 || mp4_variant || post.file.url;
+    let videoUrl: string | null = null;
+    let source = '';
+
+    if (alternates['480p']?.url) {
+      videoUrl = alternates['480p'].url;
+      source = '480p';
+    } else if (alternates['720p']?.url) {
+      videoUrl = alternates['720p'].url;
+      source = '720p';
+    } else if (alternates.original?.url) {
+      videoUrl = alternates.original.url;
+      source = 'original alternate';
+    } else if (alternates.variants?.mp4?.url) {
+      videoUrl = alternates.variants.mp4.url;
+      source = 'MP4 variant';
+    }
+    
+    if (videoUrl) {
+      console.log(`[Video] Post ${post.id}: Found ${source} MP4`);
+      return videoUrl;
+    }
+
+    console.warn(`[Video] Post ${post.id}: ❌ No MP4 alternatives found`);
+    return null;
   }
 }
 
 export const e621Api = new E621Api();
+export { ApiError };

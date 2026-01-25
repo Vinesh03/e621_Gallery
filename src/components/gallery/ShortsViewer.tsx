@@ -1,6 +1,6 @@
 import { E621Post } from '@/types/e621';
 import { e621Api } from '@/services/e621Api';
-import { Star, Download, ExternalLink, Loader2, ThumbsUp, ThumbsDown, LayoutGrid, Play, Info, ChevronDown, X } from 'lucide-react';
+import { Star, Download, ExternalLink, Loader2, ThumbsUp, ThumbsDown, LayoutGrid, Play, Info, ChevronDown, X, Settings, LogOut, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
@@ -17,6 +17,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface ShortsViewerProps {
   posts: E621Post[];
@@ -54,6 +61,56 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
   
   // Display name for greeting
   const displayName = credentials?.username || (isGuest ? 'Ospite' : null);
+
+  // User menu component for Shorts mode
+  const ShortsUserMenu = () => {
+    if (!displayName) return null;
+    
+    const handleLogout = () => {
+      logout();
+      navigate('/login');
+    };
+
+    const handleFavorites = () => {
+      if (isGuest) return;
+      navigate('/favorites');
+    };
+
+    const handleSettings = () => {
+      navigate('/settings');
+    };
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Ciao, <span className="text-primary font-medium">{displayName}</span>
+            <ChevronDown className="w-4 h-4" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <div className="px-2 py-1.5 text-sm font-medium">
+            {displayName}
+          </div>
+          <DropdownMenuSeparator />
+          {!isGuest && (
+            <DropdownMenuItem onClick={handleFavorites} className="cursor-pointer">
+              <Heart className="w-4 h-4 mr-2" />
+              Preferiti
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={handleSettings} className="cursor-pointer">
+            <Settings className="w-4 h-4 mr-2" />
+            Impostazioni avanzate
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+            <LogOut className="w-4 h-4 mr-2" />
+            {isGuest ? 'Accedi' : 'Esci'}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
   // Sync local posts with prop
   useEffect(() => {
@@ -106,10 +163,10 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
         const nextIndex = currentIndex + i;
         if (nextIndex < localPosts.length) {
           const nextPost = localPosts[nextIndex];
-          const videoUrl = e621Api.getVideoPlaybackUrl(nextPost) || e621Api.getDownloadUrl(nextPost);
-          
+          const videoUrl = e621Api.getVideoPlaybackUrl(nextPost);
+
+          // Avoid WebM on Android WebView; if no MP4 is available, skip preloading.
           if (videoUrl && !preloadedUrls.current.has(videoUrl)) {
-            // Create a hidden video element to preload
             const preloadVideo = document.createElement('video');
             preloadVideo.preload = 'metadata';
             preloadVideo.src = videoUrl;
@@ -123,16 +180,12 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
     preloadVideos();
   }, [currentIndex, localPosts]);
 
-  // Play/pause videos based on current index - WITH SOUND
+  // Play/pause videos based on current index (keep muted by default for stability on mobile)
   useEffect(() => {
     videoRefs.current.forEach((video, index) => {
       if (index === currentIndex) {
-        video.muted = false; // Volume ON by default
-        video.play().catch(() => {
-          // If autoplay with sound fails, try muted
-          video.muted = true;
-          video.play().catch(() => {});
-        });
+        video.muted = true;
+        video.play().catch(() => {});
       } else {
         video.pause();
       }
@@ -342,14 +395,10 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           <div className="px-4 py-2">
-            {/* User greeting - minimal height */}
-            {displayName && (
-              <div className="flex items-center justify-end h-[20px]">
-                <span className="text-sm text-muted-foreground">
-                  Ciao, <span className="text-primary font-medium">{displayName}</span>
-                </span>
-              </div>
-            )}
+            {/* User greeting with menu */}
+            <div className="flex items-center justify-end min-h-[20px]">
+              <ShortsUserMenu />
+            </div>
             {/* View mode toggle */}
             <div className="flex items-center gap-2 mt-1">
               <button
@@ -389,14 +438,10 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           <div className="px-4 py-2">
-            {/* User greeting - minimal height */}
-            {displayName && (
-              <div className="flex items-center justify-end h-[20px]">
-                <span className="text-sm text-muted-foreground">
-                  Ciao, <span className="text-primary font-medium">{displayName}</span>
-                </span>
-              </div>
-            )}
+            {/* User greeting with menu */}
+            <div className="flex items-center justify-end min-h-[20px]">
+              <ShortsUserMenu />
+            </div>
             {/* View mode toggle */}
             <div className="flex items-center gap-2 mt-1">
               <button
@@ -441,14 +486,10 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
         >
           <div className="px-4 py-2">
-            {/* User greeting - minimal height */}
-            {displayName && (
-              <div className="flex items-center justify-end h-[20px]">
-                <span className="text-sm text-muted-foreground">
-                  Ciao, <span className="text-primary font-medium">{displayName}</span>
-                </span>
-              </div>
-            )}
+            {/* User greeting with menu */}
+            <div className="flex items-center justify-end min-h-[20px]">
+              <ShortsUserMenu />
+            </div>
             {/* View mode toggle */}
             <div className="flex items-center gap-2 mt-1">
               <button
@@ -564,26 +605,48 @@ export function ShortsViewer({ posts, isLoading, onLoadMore, hasMore, onExit }: 
             transition={{ duration: 0.25, ease: 'easeOut' }}
             className="w-full h-full flex items-center justify-center"
           >
-            {currentPost && (
-              <div className="flex flex-col items-center gap-4 w-full h-full justify-center">
-                <video
-                  ref={(el) => {
-                    if (el) videoRefs.current.set(currentIndex, el);
-                  }}
-                  src={e621Api.getVideoPlaybackUrl(currentPost) || e621Api.getDownloadUrl(currentPost) || ''}
-                  className="max-w-full max-h-[80vh] object-contain"
-                  controls
-                  autoPlay
-                  loop
-                  playsInline
-                  muted
-                  preload="auto"
-                  onError={() => {
-                    toast.error('Video non riproducibile');
-                  }}
-                />
-              </div>
-            )}
+            {currentPost && (() => {
+              const videoPlaybackUrl = e621Api.getVideoPlaybackUrl(currentPost);
+              
+              if (!videoPlaybackUrl) {
+                return (
+                  <div className="flex flex-col items-center justify-center gap-4 text-center px-4">
+                    <p className="text-foreground">
+                      Questo video non è disponibile per la riproduzione in-app (formato WebM).
+                    </p>
+                    <Button
+                      onClick={handleOpenOnE621}
+                      variant="secondary"
+                      className="flex items-center gap-2"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Apri su e621
+                    </Button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="flex flex-col items-center gap-4 w-full h-full justify-center">
+                  <video
+                    ref={(el) => {
+                      if (el) videoRefs.current.set(currentIndex, el);
+                    }}
+                    src={videoPlaybackUrl}
+                    className="max-w-full max-h-[80vh] object-contain"
+                    controls
+                    autoPlay
+                    loop
+                    playsInline
+                    muted
+                    preload="metadata"
+                    onError={() => {
+                      toast.error('Video non riproducibile');
+                    }}
+                  />
+                </div>
+              );
+            })()}
           </motion.div>
         </AnimatePresence>
 

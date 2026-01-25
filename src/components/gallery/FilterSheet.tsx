@@ -4,10 +4,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/co
 import { SlidersHorizontal, LogOut, Image, Film, Layers, ChevronDown, ChevronUp, Bookmark, Plus, X, Edit2, Check, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
-import { ThemeCustomizer } from './ThemeCustomizer';
-import { AdvancedSettings } from './AdvancedSettings';
 import { useLanguage } from '@/hooks/use-language';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -23,7 +22,72 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   const { currentTags, setCurrentTags, savedSearches, addSavedSearch, removeSavedSearch, renameSavedSearch, updateSavedSearchTags } = useSearchStore();
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Support both controlled and uncontrolled usage.
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isOpen ?? internalOpen;
+  
+  // Handle open change with history state for back button support
+  const handleOpenChange = (newOpen: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(newOpen);
+    } else {
+      setInternalOpen(newOpen);
+    }
+    
+    // Web-only: push history state so browser back closes the sheet.
+    if (newOpen && !Capacitor.isNativePlatform()) {
+      window.history.pushState({ filterSheetOpen: true }, '');
+    }
+  };
+
+  // Native Android back button (Capacitor): closing the sheet should NOT close the app.
+  useEffect(() => {
+    if (!open || !Capacitor.isNativePlatform()) return;
+
+    let removed = false;
+    let handle: { remove: () => Promise<void> } | null = null;
+
+    (async () => {
+      try {
+        // Dynamic import to avoid build errors on web
+        const { App: CapacitorApp } = await import('@capacitor/app');
+        if (removed) return;
+        
+        handle = await CapacitorApp.addListener('backButton', () => {
+          if (removed) return;
+          // Close the sheet and swallow the back action.
+          if (onOpenChange) onOpenChange(false);
+          else setInternalOpen(false);
+        });
+      } catch {
+        // Plugin not available, ignore
+      }
+    })();
+
+    return () => {
+      removed = true;
+      handle?.remove();
+    };
+  }, [open, onOpenChange]);
+
+  // Browser back button (web): close the sheet using history.
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (open) {
+        // Prevent default back navigation, just close the sheet
+        if (onOpenChange) {
+          onOpenChange(false);
+        } else {
+          setInternalOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [open, onOpenChange]);
+
   const [showSavedSearches, setShowSavedSearches] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -42,6 +106,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   ];
 
   const handleLogout = () => {
+    handleOpenChange(false);
     logout();
     navigate('/');
   };
@@ -56,9 +121,8 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   };
 
   const handleLoadSearch = (search: SavedSearch) => {
-    // Import saved search tags to search bar
     setCurrentTags(search.tags);
-    onOpenChange?.(false);
+    handleOpenChange(false);
   };
 
   const handleOverwriteSearch = (id: string) => {
@@ -85,200 +149,200 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      {!isOpen && onOpenChange === undefined && (
+    <Sheet open={open} onOpenChange={handleOpenChange} modal={false}>
+      {isOpen === undefined && onOpenChange === undefined && (
         <SheetTrigger asChild>
           <button className="p-2 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors">
             <SlidersHorizontal className="w-5 h-5" />
           </button>
         </SheetTrigger>
       )}
-      <SheetContent className="bg-background border-border overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{t('filter.title')}</SheetTitle>
-        </SheetHeader>
-        
-        <div className="mt-6 space-y-6">
-          {/* Rating filter */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-sm">{t('filter.rating')}</h3>
-            <div className="space-y-2">
-              {ratingOptions.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setRatingFilter(option.value)}
-                  className={cn(
-                    "w-full p-3 rounded-lg text-left transition-colors",
-                    ratingFilter === option.value
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary hover:bg-secondary/80"
-                  )}
-                >
-                  <div className="font-medium text-sm">{option.label}</div>
-                  <div className={cn(
-                    "text-xs mt-0.5",
-                    ratingFilter === option.value
-                      ? "text-primary-foreground/70"
-                      : "text-muted-foreground"
-                  )}>
-                    {option.description}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
+      <SheetContent className="bg-background border-border flex flex-col p-0 h-screen">
+        <div className="p-6 pb-0">
+          <SheetHeader>
+            <SheetTitle>{t('filter.title')}</SheetTitle>
+          </SheetHeader>
+        </div>
 
-          {/* Media type filter */}
-          <div className="space-y-3">
-            <h3 className="font-medium text-sm">{t('filter.media')}</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {mediaOptions.map((option) => {
-                const Icon = option.icon;
-                return (
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto px-6">
+          <div className="mt-6 space-y-6 pb-4">
+            {/* Rating filter */}
+            <div className="space-y-3">
+              <h3 className="font-medium text-sm">{t('filter.rating')}</h3>
+              <div className="space-y-2">
+                {ratingOptions.map((option) => (
                   <button
                     key={option.value}
-                    onClick={() => setMediaFilter(option.value)}
+                    onClick={() => setRatingFilter(option.value)}
                     className={cn(
-                      "p-3 rounded-lg flex flex-col items-center gap-2 transition-colors",
-                      mediaFilter === option.value
+                      "w-full p-3 rounded-lg text-left transition-colors",
+                      ratingFilter === option.value
                         ? "bg-primary text-primary-foreground"
                         : "bg-secondary hover:bg-secondary/80"
                     )}
                   >
-                    <Icon className="w-5 h-5" />
-                    <span className="text-xs font-medium">{option.label}</span>
+                    <div className="font-medium text-sm">{option.label}</div>
+                    <div
+                      className={cn(
+                        "text-xs mt-0.5",
+                        ratingFilter === option.value
+                          ? "text-primary-foreground/70"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {option.description}
+                    </div>
                   </button>
-                );
-              })}
+                ))}
+              </div>
+            </div>
+
+            {/* Media type filter */}
+            <div className="space-y-3">
+              <h3 className="font-medium text-sm">{t('filter.media')}</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {mediaOptions.map((option) => {
+                  const Icon = option.icon;
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => setMediaFilter(option.value)}
+                      className={cn(
+                        "p-3 rounded-lg flex flex-col items-center gap-2 transition-colors",
+                        mediaFilter === option.value
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary hover:bg-secondary/80"
+                      )}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-xs font-medium">{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Saved searches section */}
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowSavedSearches(!showSavedSearches)}
+                className="w-full p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <Bookmark className="w-4 h-4" />
+                  <span className="font-medium text-sm">{t('saved.title')}</span>
+                </div>
+                {showSavedSearches ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+
+              {showSavedSearches && (
+                <div className="space-y-2">
+                  {currentTags.trim() && (
+                    <Button
+                      variant="outline"
+                      onClick={handleSaveCurrentSearch}
+                      className="w-full flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      {t('saved.save')}
+                    </Button>
+                  )}
+
+                  {savedSearches.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      {t('saved.empty.list')}
+                    </p>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {savedSearches.map((search) => (
+                        <div
+                          key={search.id}
+                          className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50"
+                        >
+                          {editingId === search.id ? (
+                            <>
+                              <Input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                className="flex-1 h-8 text-sm"
+                                onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(search.id)}
+                                autoFocus
+                              />
+                              <button
+                                onClick={() => handleSaveEdit(search.id)}
+                                className="p-1 hover:bg-primary/20 rounded"
+                              >
+                                <Check className="w-4 h-4 text-primary" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleLoadSearch(search)}
+                                className="flex-1 text-left"
+                              >
+                                <div className="font-medium text-sm truncate">
+                                  {search.name || search.tags}
+                                </div>
+                                {search.name && (
+                                  <div className="text-xs text-muted-foreground truncate">
+                                    {search.tags}
+                                  </div>
+                                )}
+                              </button>
+                              {currentTags.trim() && currentTags !== search.tags && (
+                                <button
+                                  onClick={() => handleOverwriteSearch(search.id)}
+                                  className="p-1 hover:bg-accent/20 rounded"
+                                  title={t('saved.overwrite')}
+                                >
+                                  <RefreshCw className="w-3 h-3 text-accent" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleStartEdit(search.id, search.name || search.tags)}
+                                className="p-1 hover:bg-primary/20 rounded"
+                              >
+                                <Edit2 className="w-3 h-3 text-muted-foreground" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  removeSavedSearch(search.id);
+                                  toast.success(t('saved.removed'));
+                                }}
+                                className="p-1 hover:bg-destructive/20 rounded"
+                              >
+                                <X className="w-3 h-3 text-destructive" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
+        </div>
 
-          {/* Saved searches section */}
-          <div className="space-y-3">
-            <button
-              onClick={() => setShowSavedSearches(!showSavedSearches)}
-              className="w-full p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <Bookmark className="w-4 h-4" />
-                <span className="font-medium text-sm">{t('saved.title')}</span>
-              </div>
-              {showSavedSearches ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-            
-            {showSavedSearches && (
-              <div className="space-y-2">
-                {/* Save current search button */}
-                {currentTags.trim() && (
-                  <Button
-                    variant="outline"
-                    onClick={handleSaveCurrentSearch}
-                    className="w-full flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    {t('saved.save')}
-                  </Button>
-                )}
-                
-                {/* List of saved searches */}
-                {savedSearches.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-2">
-                    {t('saved.empty.list')}
-                  </p>
-                ) : (
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {savedSearches.map((search) => (
-                      <div
-                        key={search.id}
-                        className="flex items-center gap-2 p-2 rounded-lg bg-secondary/50"
-                      >
-                        {editingId === search.id ? (
-                          <>
-                            <Input
-                              value={editName}
-                              onChange={(e) => setEditName(e.target.value)}
-                              className="flex-1 h-8 text-sm"
-                              onKeyDown={(e) => e.key === 'Enter' && handleSaveEdit(search.id)}
-                              autoFocus
-                            />
-                            <button
-                              onClick={() => handleSaveEdit(search.id)}
-                              className="p-1 hover:bg-primary/20 rounded"
-                            >
-                              <Check className="w-4 h-4 text-primary" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => handleLoadSearch(search)}
-                              className="flex-1 text-left"
-                            >
-                              <div className="font-medium text-sm truncate">
-                                {search.name || search.tags}
-                              </div>
-                              {search.name && (
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {search.tags}
-                                </div>
-                              )}
-                            </button>
-                            {/* Overwrite button - only show if current tags exist and differ */}
-                            {currentTags.trim() && currentTags !== search.tags && (
-                              <button
-                                onClick={() => handleOverwriteSearch(search.id)}
-                                className="p-1 hover:bg-accent/20 rounded"
-                                title={t('saved.overwrite')}
-                              >
-                                <RefreshCw className="w-3 h-3 text-accent" />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => handleStartEdit(search.id, search.name || search.tags)}
-                              className="p-1 hover:bg-primary/20 rounded"
-                            >
-                              <Edit2 className="w-3 h-3 text-muted-foreground" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                removeSavedSearch(search.id);
-                                toast.success(t('saved.removed'));
-                              }}
-                              className="p-1 hover:bg-destructive/20 rounded"
-                            >
-                              <X className="w-3 h-3 text-destructive" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Advanced settings toggle */}
+        {/* Logout button - always visible, separate from scrollable content */}
+        {(credentials || isGuest) && (
           <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="w-full p-3 rounded-lg bg-secondary hover:bg-secondary/80 transition-colors flex items-center justify-between"
+            onClick={handleLogout}
+            className="mx-6 mb-6 w-[calc(100%-3rem)] p-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2"
           >
-            <span className="font-medium text-sm">{t('settings.advanced')}</span>
-            {showAdvanced ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <LogOut className="w-4 h-4" />
+            <span className="font-medium text-sm">{isGuest ? t('action.login') : t('action.logout')}</span>
           </button>
-          
-          {showAdvanced && <AdvancedSettings />}
+        )}
 
-          {/* Logout button */}
-          {(credentials || isGuest) && (
-            <button
-              onClick={handleLogout}
-              className="w-full p-3 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors flex items-center justify-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="font-medium text-sm">{isGuest ? t('action.login') : t('action.logout')}</span>
-            </button>
-          )}
+        {/* Developer signature - Fixed at bottom, always visible */}
+        <div className="border-t border-border px-6 py-4 bg-background">
+          <p className="text-center text-xs text-muted-foreground/60">
+            Built with <span className="text-red-500 animate-pulse">❤️</span> by <span className="font-semibold text-muted-foreground">SheetSeeker1486</span>
+          </p>
         </div>
       </SheetContent>
     </Sheet>

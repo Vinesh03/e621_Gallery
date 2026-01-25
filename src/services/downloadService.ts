@@ -9,13 +9,22 @@ interface DownloadResult {
   error?: string;
 }
 
+const VALID_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp', 'webm', 'mp4']);
+
 const getFileExtension = (url: string): string => {
-  const urlPath = url.split('?')[0];
-  const extension = urlPath.split('.').pop()?.toLowerCase() || 'jpg';
-  return extension;
+  try {
+    const urlPath = url.split('?')[0];
+    const extension = urlPath.split('.').pop()?.toLowerCase() || 'jpg';
+    return VALID_EXTENSIONS.has(extension) ? extension : 'jpg';
+  } catch {
+    return 'jpg';
+  }
 };
 
 const getFileName = (postId: number, url: string): string => {
+  if (!postId || postId <= 0) {
+    throw new Error('Invalid post ID');
+  }
   const extension = getFileExtension(url);
   return `e621_${postId}.${extension}`;
 };
@@ -31,7 +40,20 @@ export const downloadService = {
     postId: number,
     folderSetting: DownloadFolder = 'downloads'
   ): Promise<DownloadResult> {
-    const fileName = getFileName(postId, url);
+    // Input validation
+    if (!url || typeof url !== 'string') {
+      return { success: false, error: 'URL non valido' };
+    }
+    if (!postId || postId <= 0) {
+      return { success: false, error: 'ID post non valido' };
+    }
+
+    let fileName: string;
+    try {
+      fileName = getFileName(postId, url);
+    } catch (e) {
+      return { success: false, error: 'Errore nella generazione del nome file' };
+    }
     
     // Check if we're on a native platform
     if (Capacitor.isNativePlatform()) {

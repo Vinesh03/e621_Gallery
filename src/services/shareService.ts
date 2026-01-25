@@ -13,6 +13,11 @@ export const shareService = {
    * On web: uses Web Share API or falls back to clipboard
    */
   async sharePost(postId: number): Promise<ShareResult> {
+    // Input validation
+    if (!postId || postId <= 0) {
+      return { success: false, error: 'ID post non valido' };
+    }
+
     const url = `https://e621.net/posts/${postId}`;
     const title = `Post #${postId} - e621`;
     
