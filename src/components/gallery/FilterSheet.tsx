@@ -5,7 +5,7 @@ import { SlidersHorizontal, LogOut, Image, Film, Layers, ChevronDown, ChevronUp,
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/hooks/use-language';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -25,7 +25,37 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
   // Support both controlled and uncontrolled usage.
   const [internalOpen, setInternalOpen] = useState(false);
   const open = isOpen ?? internalOpen;
-  const handleOpenChange = onOpenChange ?? setInternalOpen;
+  
+  // Handle open change with history state for back button support
+  const handleOpenChange = (newOpen: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(newOpen);
+    } else {
+      setInternalOpen(newOpen);
+    }
+    
+    // Push/pop history state for back button handling
+    if (newOpen) {
+      window.history.pushState({ filterSheetOpen: true }, '');
+    }
+  };
+
+  // Listen for back button (popstate) to close the sheet
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (open) {
+        // Prevent default back navigation, just close the sheet
+        if (onOpenChange) {
+          onOpenChange(false);
+        } else {
+          setInternalOpen(false);
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [open, onOpenChange]);
 
   const [showSavedSearches, setShowSavedSearches] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
