@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/hooks/use-language';
 import { useState, useEffect } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -34,13 +36,40 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
       setInternalOpen(newOpen);
     }
     
-    // Push/pop history state for back button handling
-    if (newOpen) {
+    // Web-only: push history state so browser back closes the sheet.
+    if (newOpen && !Capacitor.isNativePlatform()) {
       window.history.pushState({ filterSheetOpen: true }, '');
     }
   };
 
   // Listen for back button (popstate) to close the sheet
+  useEffect(() => {
+    // Native Android back button (Capacitor): closing the sheet should NOT close the app.
+    if (!open || !Capacitor.isNativePlatform()) return;
+
+    let removed = false;
+    let handle: { remove: () => Promise<void> } | null = null;
+
+    (async () => {
+      try {
+        handle = await CapacitorApp.addListener('backButton', () => {
+          if (removed) return;
+          // Close the sheet and swallow the back action.
+          if (onOpenChange) onOpenChange(false);
+          else setInternalOpen(false);
+        });
+      } catch {
+        // ignore
+      }
+    })();
+
+    return () => {
+      removed = true;
+      handle?.remove();
+    };
+  }, [open, onOpenChange]);
+
+  // Browser back button (web): close the sheet using history.
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (open) {
