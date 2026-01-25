@@ -7,7 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/hooks/use-language';
 import { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { App as CapacitorApp } from '@capacitor/app';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -42,9 +41,8 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
     }
   };
 
-  // Listen for back button (popstate) to close the sheet
+  // Native Android back button (Capacitor): closing the sheet should NOT close the app.
   useEffect(() => {
-    // Native Android back button (Capacitor): closing the sheet should NOT close the app.
     if (!open || !Capacitor.isNativePlatform()) return;
 
     let removed = false;
@@ -52,6 +50,10 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
 
     (async () => {
       try {
+        // Dynamic import to avoid build errors on web
+        const { App: CapacitorApp } = await import('@capacitor/app');
+        if (removed) return;
+        
         handle = await CapacitorApp.addListener('backButton', () => {
           if (removed) return;
           // Close the sheet and swallow the back action.
@@ -59,7 +61,7 @@ export function FilterSheet({ isOpen, onOpenChange }: FilterSheetProps = {}) {
           else setInternalOpen(false);
         });
       } catch {
-        // ignore
+        // Plugin not available, ignore
       }
     })();
 
