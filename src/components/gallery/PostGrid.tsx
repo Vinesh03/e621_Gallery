@@ -1,5 +1,4 @@
-import React, { useEffect, useRef, useMemo, useCallback } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import React, { useEffect, useRef } from 'react';
 import { E621Post } from '@/types/e621';
 import { PostCard } from './PostCard';
 import { Loader2 } from 'lucide-react';
@@ -11,15 +10,13 @@ interface PostGridProps {
   onDownload: (post: E621Post) => void;
   onLoadMore?: () => void;
   hasMore?: boolean;
-  columnCount?: number; // responsive column count
+  columnCount?: number;
 }
 
 /**
- * PostGrid with Virtual Scrolling for optimal performance
- * - Renders only visible items (virtual scrolling)
- * - Supports responsive column layouts
- * - Lazy loading with IntersectionObserver
- * - Maintains scroll position and smooth scrolling
+ * PostGrid with infinite scroll
+ * - Uses IntersectionObserver for automatic loading
+ * - Simple grid layout (no virtualization for better scroll compatibility)
  */
 export function PostGrid({ 
   posts, 
@@ -35,32 +32,6 @@ export function PostGrid({
   const observerRef = useRef<IntersectionObserver | null>(null);
   const cooldownRef = useRef(false);
   const cooldownTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Calculate rows based on column count and posts
-  const rows = useMemo(() => {
-    const rowCount = Math.ceil(posts.length / columnCount);
-    return Array.from({ length: rowCount }, (_, i) => 
-      posts.slice(i * columnCount, (i + 1) * columnCount)
-    );
-  }, [posts, columnCount]);
-
-  // Virtual scrolling setup
-  const rowVirtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 320, // estimated height of each row (adjust based on your card height)
-    overscan: 10, // render 10 extra rows outside viewport for smoother scrolling
-    measureElement: typeof window !== 'undefined' 
-      ? (element) => element?.getBoundingClientRect().height
-      : undefined,
-  });
-
-  const virtualRows = rowVirtualizer.getVirtualItems();
-  const totalSize = rowVirtualizer.getTotalSize();
-  const paddingTop = virtualRows.length > 0 ? virtualRows?.[0]?.start ?? 0 : 0;
-  const paddingBottom = virtualRows.length > 0 
-    ? totalSize - (virtualRows?.[virtualRows.length - 1]?.end ?? 0)
-    : 0;
 
   // Setup infinite scroll sentinel
   useEffect(() => {
@@ -145,76 +116,42 @@ export function PostGrid({
   }
 
   return (
-    <div className="w-full h-full">
-      <div
-        ref={parentRef}
-        className="w-full overflow-auto"
-        style={{ height: '100vh' }}
-      >
-        <div>
-          {/* Virtual scrolling container */}
-          <div
-            style={{
-              height: `${totalSize}px`,
-              width: '100%',
-              position: 'relative',
-            }}
-          >
-            <div
-              style={{
-                transform: `translateY(${paddingTop}px)`,
-              }}
-            >
-              {virtualRows.map((virtualRow) => {
-                const rowItems = rows[virtualRow.index];
-                return (
-                  <div
-                    key={virtualRow.key}
-                    data-index={virtualRow.index}
-            className="grid gap-2 mb-2"                    style={{
-                      gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
-                                  gridAutoRows: 'max-content',
-                    }}
-                  >
-                    {rowItems.map((post) => (
-                      <PostCard
-                        key={`${post.id}`}
-                        post={post}
-                        index={posts.indexOf(post)}
-                        onClick={() => onPostClick(post)}
-                        onDownload={() => onDownload(post)}
-                      />
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Loading indicator */}
-          {isLoading && (
-            <div className="flex justify-center py-8 sticky bottom-0">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-          )}
-
-          {/* Intersection sentinel for infinite scroll */}
-          <div ref={sentinelRef} className="w-full h-1" aria-hidden="true" />
-
-          {/* Fallback button for no IntersectionObserver */}
-          {!isLoading && hasMore && onLoadMore && 
-            (typeof window === 'undefined' || !('IntersectionObserver' in window)) && (
-            <div className="flex justify-center py-6">
-              <button
-                onClick={onLoadMore}
-                className="px-6 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium"
-              >
-                Load More
-              </button>
-            </div>
-          )}
-        </div>
+    <div ref={parentRef} className="w-full px-2">
+      {/* Grid container - uses page scroll, not internal scroll */}
+      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))` }}>
+        {posts.map((post, index) => (
+          <PostCard
+            key={post.id}
+            post={post}
+            index={index}
+            onClick={() => onPostClick(post)}
+            onDownload={() => onDownload(post)}
+          />
+        ))}
       </div>
+
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="flex justify-center py-8">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      )}
+
+      {/* Intersection sentinel for infinite scroll */}
+      <div ref={sentinelRef} className="w-full h-4" aria-hidden="true" />
+
+      {/* Fallback button for no IntersectionObserver */}
+      {!isLoading && hasMore && onLoadMore && 
+        (typeof window === 'undefined' || !('IntersectionObserver' in window)) && (
+        <div className="flex justify-center py-6">
+          <button
+            onClick={onLoadMore}
+            className="px-6 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors font-medium"
+          >
+            Load More
+          </button>
+        </div>
+      )}
     </div>
   );
 }
