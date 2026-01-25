@@ -15,4 +15,10 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      // Externalize Capacitor plugins so build works in web-only environments
+      external: ["@capacitor/app"],
+    },
+  },
 }));
